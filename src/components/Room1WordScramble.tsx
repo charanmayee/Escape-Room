@@ -10,7 +10,7 @@ interface Room1Props {
 }
 
 const WORDS_DATA = [
-  { id: 1, scrambled: "N P E Y T H O", answer: "PYTHON", hint: "The leading language for AI and college coding projects." },
+  { id: 1, scrambled: "N P Y T H O", answer: "PYTHON", hint: "The leading language for AI and college coding projects." },
   { id: 2, scrambled: "G L O C L E E", answer: "COLLEGE", hint: "The academic campus institute where students attend lectures." },
   { id: 3, scrambled: "T N U D E T S", answer: "STUDENT", hint: "A learner enrolled in college coursework." },
   { id: 4, scrambled: "T C O J E R P", answer: "PROJECT", hint: "A collaborative software assignment built before finals." },

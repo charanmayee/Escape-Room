@@ -10,7 +10,7 @@ interface Room2Props {
 }
 
 const DECAPITATED_DATA = [
-  { id: 1, pattern: "_ A T _", category: "Animals", clue: "A domestic pet that meows, purrs, and catches mice.", answer: "CAT", hint: "Three letters. Rhymes with bat and hat." },
+  { id: 1, pattern: "_ A _", category: "Animals", clue: "A domestic pet that meows, purrs, and catches mice.", answer: "CAT", hint: "Three letters. Rhymes with bat and hat." },
   { id: 2, pattern: "_ Y T H O _", category: "Programming", clue: "High-level object-oriented programming language named after a comedy show.", answer: "PYTHON", hint: "Snake mascot, creator Guido van Rossum." },
   { id: 3, pattern: "_ O B O _", category: "Technology", clue: "An automated electro-mechanical machine programmed to do tasks.", answer: "ROBOT", hint: "Starts with R, ends with T. Think sci-fi android." },
   { id: 4, pattern: "_ A P T O _", category: "College Objects", clue: "A foldable portable personal computer carried to lectures.", answer: "LAPTOP", hint: "You keep it on your lap when working." },

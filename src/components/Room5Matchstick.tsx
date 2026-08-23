@@ -13,9 +13,11 @@ const MATCHSTICK_SOLUTIONS = [
   "0 + 4 = 4",
   "5 + 4 = 9",
   "8 - 4 = 4",
+  "6 - 4 = 2",
   "0+4=4",
   "5+4=9",
   "8-4=4",
+  "6-4=2",
 ];
 
 export const Room5Matchstick: React.FC<Room5Props> = ({
