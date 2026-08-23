@@ -304,7 +304,11 @@ app.post("/api/gemini/riddle", async (req, res) => {
     const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite"];
     for (const modelName of modelsToTry) {
       try {
-        const response = await ai.models.generateContent({
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("AI generation timeout")), 3500)
+        );
+
+        const aiPromise = ai.models.generateContent({
           model: modelName,
           contents: `Generate one clever escape room riddle.
 Theme: ${theme}
@@ -328,6 +332,8 @@ Return strictly JSON adhering to the schema.`,
           },
         });
 
+        const response: any = await Promise.race([aiPromise, timeoutPromise]);
+
         const parsed = JSON.parse(response.text?.trim() || "{}");
         if (parsed.question && parsed.answer) {
           return res.json({
@@ -343,9 +349,8 @@ Return strictly JSON adhering to the schema.`,
           });
         }
       } catch (err: any) {
-        // Log clean notice and try fallback model or offline backup
         const errMsg = err?.message || String(err);
-        console.warn(`Gemini (${modelName}) unavailable (${errMsg.slice(0, 80)}...), attempting fallback.`);
+        console.warn(`Gemini (${modelName}) notice (${errMsg.slice(0, 80)}...), attempting next fallback.`);
       }
     }
   }
