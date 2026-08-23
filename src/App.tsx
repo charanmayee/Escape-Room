@@ -73,6 +73,54 @@ export function App() {
     return () => clearInterval(timer);
   }, [gameStarted, isVictory, isGameOver]);
 
+  const syncPlayerScore = async (
+    name: string,
+    currentScore: number,
+    roomsCount: number,
+    timeRem: number,
+    diff: DifficultyLevel
+  ) => {
+    if (!name || name.trim().length < 2) return;
+    const cleanName = name.trim();
+    const entry = {
+      player: cleanName,
+      score: currentScore,
+      rooms_completed: roomsCount,
+      time_remaining: timeRem,
+      difficulty: diff,
+      completed_at: new Date().toISOString(),
+    };
+
+    // 1. Save to local storage cache
+    try {
+      const raw = localStorage.getItem("ai_escape_room_user_scores");
+      let list: any[] = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) list = [];
+      const idx = list.findIndex((e: any) => e && e.player && e.player.toLowerCase() === cleanName.toLowerCase());
+      if (idx >= 0) {
+        if (currentScore >= list[idx].score) {
+          list[idx] = entry;
+        }
+      } else {
+        list.push(entry);
+      }
+      localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(list));
+    } catch {
+      // safe fallback
+    }
+
+    // 2. Transmit to server API
+    try {
+      await fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+    } catch (e) {
+      console.warn("Could not sync score to server:", e);
+    }
+  };
+
   const handleStartGame = (name: string, diff: DifficultyLevel) => {
     initAudioContext();
     const diffTimer = diff === "Easy" ? 1200 : diff === "Hard" ? 600 : 900;
@@ -98,12 +146,17 @@ export function App() {
   const handleUnlockRoom = (nextRoom: number, earnedPoints: number) => {
     const multiplier = difficulty === "Hard" ? 2.0 : difficulty === "Medium" ? 1.5 : 1.0;
     const adjustedPoints = Math.round(earnedPoints * multiplier);
+    const newScore = score + adjustedPoints;
+    const newRooms = unlockedRooms.includes(nextRoom) ? unlockedRooms : [...unlockedRooms, nextRoom];
 
-    setScore((prev) => prev + adjustedPoints);
+    setScore(newScore);
     if (!unlockedRooms.includes(nextRoom)) {
-      setUnlockedRooms((prev) => [...prev, nextRoom]);
+      setUnlockedRooms(newRooms);
     }
     setCurrentRoom(nextRoom);
+
+    // Sync live player progress
+    syncPlayerScore(playerName, newScore, Math.max(1, nextRoom - 1), remainingTime, difficulty);
   };
 
   const handleFinalEscape = () => {
@@ -121,7 +174,9 @@ export function App() {
     if (completedBonusIds.includes(bonusId)) return;
     setCompletedBonusIds((prev) => [...prev, bonusId]);
     const multiplier = difficulty === "Hard" ? 2.0 : difficulty === "Medium" ? 1.5 : 1.0;
-    setScore((prev) => prev + Math.round(pts * multiplier));
+    const newScore = score + Math.round(pts * multiplier);
+    setScore(newScore);
+    syncPlayerScore(playerName, newScore, unlockedRooms.length, remainingTime, difficulty);
   };
 
   const [hintModalData, setHintModalData] = useState<{ room: number; text: string; loading: boolean } | null>(null);

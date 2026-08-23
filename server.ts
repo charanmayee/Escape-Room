@@ -37,37 +37,27 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 const LEADERBOARD_PATH = path.join(DATA_DIR, "leaderboard.json");
 if (!fs.existsSync(LEADERBOARD_PATH)) {
-  const initialLeaderboard = [
-    {
-      player: "CyberSherlock",
-      score: 1840,
-      rooms_completed: 5,
-      time_remaining: 520,
-      completed_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-    },
-    {
-      player: "AgentCipher",
-      score: 1680,
-      rooms_completed: 5,
-      time_remaining: 410,
-      completed_at: new Date(Date.now() - 3600000 * 12).toISOString(),
-    },
-    {
-      player: "NeoHacker",
-      score: 1510,
-      rooms_completed: 5,
-      time_remaining: 320,
-      completed_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-    },
-    {
-      player: "ByteEnigma",
-      score: 1390,
-      rooms_completed: 4,
-      time_remaining: 180,
-      completed_at: new Date(Date.now() - 3600000 * 36).toISOString(),
-    },
-  ];
-  fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify(initialLeaderboard, null, 2));
+  fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify([], null, 2));
+}
+
+// Filter helper to exclude placeholder/bot names
+const MOCK_NAMES = new Set([
+  "cybersherlock",
+  "agentcipher",
+  "neohacker",
+  "byteenigma",
+  "agent phoenix",
+  "anonymous",
+  "test",
+  "admin",
+]);
+
+function isRealPlayer(name: any): boolean {
+  if (!name || typeof name !== "string") return false;
+  const clean = name.trim().toLowerCase();
+  if (clean.length < 2) return false;
+  if (MOCK_NAMES.has(clean)) return false;
+  return true;
 }
 
 // API: Health check
@@ -79,11 +69,18 @@ app.get("/api/health", (req, res) => {
 app.get("/api/leaderboard", (req, res) => {
   try {
     if (fs.existsSync(LEADERBOARD_PATH)) {
-      const rawData = JSON.parse(fs.readFileSync(LEADERBOARD_PATH, "utf-8"));
-      // Deduplicate by player name (case-insensitive), preserving highest score
+      let rawData: any[] = [];
+      try {
+        rawData = JSON.parse(fs.readFileSync(LEADERBOARD_PATH, "utf-8"));
+        if (!Array.isArray(rawData)) rawData = [];
+      } catch {
+        rawData = [];
+      }
+
+      // Filter only real players and deduplicate by player name (case-insensitive)
       const playerMap = new Map<string, any>();
       for (const entry of rawData) {
-        if (!entry || !entry.player) continue;
+        if (!entry || !isRealPlayer(entry.player)) continue;
         const normalized = String(entry.player).trim().toLowerCase();
         const existing = playerMap.get(normalized);
         if (!existing) {
@@ -91,8 +88,8 @@ app.get("/api/leaderboard", (req, res) => {
         } else {
           if (
             entry.score > existing.score ||
-            (entry.score === existing.score && entry.rooms_completed > existing.rooms_completed) ||
-            (entry.score === existing.score && entry.rooms_completed === existing.rooms_completed && entry.time_remaining > existing.time_remaining)
+            (entry.score === existing.score && (entry.rooms_completed || 0) > (existing.rooms_completed || 0)) ||
+            (entry.score === existing.score && (entry.rooms_completed || 0) === (existing.rooms_completed || 0) && (entry.time_remaining || 0) > (existing.time_remaining || 0))
           ) {
             playerMap.set(normalized, entry);
           }
@@ -101,11 +98,12 @@ app.get("/api/leaderboard", (req, res) => {
 
       const deduplicated = Array.from(playerMap.values());
       deduplicated.sort((a: any, b: any) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (b.rooms_completed !== a.rooms_completed) return b.rooms_completed - a.rooms_completed;
-        return b.time_remaining - a.time_remaining;
+        if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
+        if ((b.rooms_completed || 0) !== (a.rooms_completed || 0)) return (b.rooms_completed || 0) - (a.rooms_completed || 0);
+        return (b.time_remaining || 0) - (a.time_remaining || 0);
       });
-      return res.json({ leaderboard: deduplicated.slice(0, 10) });
+
+      return res.json({ leaderboard: deduplicated.slice(0, 50) });
     }
     return res.json({ leaderboard: [] });
   } catch (err) {
@@ -117,9 +115,15 @@ app.get("/api/leaderboard", (req, res) => {
 app.post("/api/leaderboard", (req, res) => {
   try {
     const { player, score, rooms_completed, time_remaining, difficulty } = req.body;
-    if (!player) {
-      return res.status(400).json({ error: "Player name is required" });
+    const cleanPlayer = typeof player === "string" ? player.trim() : "";
+    if (!cleanPlayer || cleanPlayer.length < 2) {
+      return res.status(400).json({ error: "Valid player name is required (min 2 chars)" });
     }
+
+    if (!isRealPlayer(cleanPlayer)) {
+      return res.status(400).json({ error: "Invalid player name" });
+    }
+
     let data: any[] = [];
     if (fs.existsSync(LEADERBOARD_PATH)) {
       try {
@@ -129,7 +133,7 @@ app.post("/api/leaderboard", (req, res) => {
         data = [];
       }
     }
-    const cleanPlayer = String(player).trim();
+
     const newEntry = {
       player: cleanPlayer,
       score: Number(score) || 0,
@@ -139,28 +143,28 @@ app.post("/api/leaderboard", (req, res) => {
       completed_at: new Date().toISOString(),
     };
 
-    // Check if player already exists in leaderboard (case-insensitive)
-    const existingIndex = data.findIndex(
-      (e: any) => e && e.player && e.player.toLowerCase() === cleanPlayer.toLowerCase()
+    // Filter and update or insert entry
+    const filtered = data.filter((e: any) => e && isRealPlayer(e.player));
+    const existingIndex = filtered.findIndex(
+      (e: any) => e.player.toLowerCase() === cleanPlayer.toLowerCase()
     );
 
     if (existingIndex >= 0) {
-      const existing = data[existingIndex];
-      // Update entry if new run is better or equal
+      const existing = filtered[existingIndex];
       if (
         newEntry.score > existing.score ||
         (newEntry.score === existing.score && newEntry.rooms_completed >= existing.rooms_completed && newEntry.time_remaining >= existing.time_remaining)
       ) {
-        data[existingIndex] = newEntry;
+        filtered[existingIndex] = newEntry;
       }
     } else {
-      data.push(newEntry);
+      filtered.push(newEntry);
     }
 
-    // Ensure entire list is strictly 1 entry per player
+    // Keep unique map
     const playerMap = new Map<string, any>();
-    for (const entry of data) {
-      if (!entry || !entry.player) continue;
+    for (const entry of filtered) {
+      if (!entry || !isRealPlayer(entry.player)) continue;
       const normalized = String(entry.player).trim().toLowerCase();
       const existing = playerMap.get(normalized);
       if (!existing) {

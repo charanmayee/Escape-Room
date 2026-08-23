@@ -38,20 +38,41 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
     playSuccessChime();
 
     // Automatically submit score to backend leaderboard
-    fetch("/api/leaderboard", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        player: playerName || "Agent Phoenix",
+    const cleanPlayer = playerName?.trim() || "";
+    if (cleanPlayer && cleanPlayer.length >= 2) {
+      const entry = {
+        player: cleanPlayer,
         score: totalScore,
         rooms_completed: 5,
         time_remaining: remainingTime,
         difficulty: difficulty,
-      }),
-    })
-      .then((res) => res.json())
-      .then(() => setSaved(true))
-      .catch((err) => console.error("Failed to save score:", err));
+        completed_at: new Date().toISOString(),
+      };
+
+      try {
+        const raw = localStorage.getItem("ai_escape_room_user_scores");
+        let list: any[] = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list)) list = [];
+        const idx = list.findIndex((e: any) => e && e.player && e.player.toLowerCase() === cleanPlayer.toLowerCase());
+        if (idx >= 0) {
+          if (totalScore >= list[idx].score) {
+            list[idx] = entry;
+          }
+        } else {
+          list.push(entry);
+        }
+        localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(list));
+      } catch {}
+
+      fetch("/api/leaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      })
+        .then((res) => res.json())
+        .then(() => setSaved(true))
+        .catch((err) => console.error("Failed to save score:", err));
+    }
   }, [playerName, remainingTime, totalScore, difficulty]);
 
   const formatTime = (secs: number) => {
