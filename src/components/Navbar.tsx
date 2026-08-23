@@ -11,7 +11,6 @@ import {
   RotateCcw,
   ShieldCheck,
   AlertTriangle,
-  Bot,
   Sparkles,
 } from "lucide-react";
 import { SoundSettings, DifficultyLevel } from "../types";
@@ -33,7 +32,6 @@ interface NavbarProps {
   gameStarted: boolean;
   onOpenLeaderboard: () => void;
   onOpenBonusModal: () => void;
-  onOpenGeminiChat: () => void;
   onResetGame: () => void;
   soundSettings: SoundSettings;
   onOpenSoundSettings: () => void;
@@ -52,7 +50,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   gameStarted,
   onOpenLeaderboard,
   onOpenBonusModal,
-  onOpenGeminiChat,
   onResetGame,
   soundSettings,
   onOpenSoundSettings,
@@ -160,20 +157,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Gemini AI Tactical Comms Terminal Button */}
-          <button
-            id="open_gemini_comms_nav_btn"
-            onClick={() => {
-              playKeyClickSound();
-              onOpenGeminiChat();
-            }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:text-amber-300 transition text-[11px] font-bold uppercase tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.15)]"
-            title="Open Gemini AI Tactical Comms Terminal"
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">AI Comms</span>
-          </button>
-
           {gameStarted && (
             <button
               id="bonus_mini_games_btn"

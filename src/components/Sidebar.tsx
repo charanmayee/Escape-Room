@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   Map,
   HelpCircle,
-  Bot,
   MessageSquare,
 } from "lucide-react";
 import { ClueItem, DifficultyLevel } from "../types";
@@ -34,7 +33,6 @@ interface SidebarProps {
   onRequestHint: () => void;
   onSelectRoom: (room: number) => void;
   onOpenBonusModal: () => void;
-  onOpenGeminiChat?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -50,7 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRequestHint,
   onSelectRoom,
   onOpenBonusModal,
-  onOpenGeminiChat,
 }) => {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -83,29 +80,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         discoveredClues={discoveredClues}
         onSelectRoom={onSelectRoom}
       />
-
-      {/* Gemini AI Tactical Assistant Banner */}
-      {onOpenGeminiChat && (
-        <button
-          id="sidebar_gemini_comms_btn"
-          onClick={() => {
-            playKeyClickSound();
-            onOpenGeminiChat();
-          }}
-          className="w-full p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-between text-xs font-bold transition shadow-sm"
-        >
-          <div className="flex items-center gap-2">
-            <Bot className="w-4 h-4 text-amber-400 animate-pulse" />
-            <div className="text-left">
-              <p className="text-white font-bold leading-none">Gemini Tactical Comms</p>
-              <p className="text-[9px] text-[#9ca3af] mt-0.5">Ask Sentry-9 or Cipher-X for hints</p>
-            </div>
-          </div>
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-[#0a0b10] font-black uppercase">
-            OPEN
-          </span>
-        </button>
-      )}
 
       {/* Player Assets */}
       <div>

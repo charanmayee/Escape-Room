@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Flame,
   AlertTriangle,
-  Bot,
 } from "lucide-react";
 import { playSuccessChime, playKeyClickSound } from "../utils/audio";
 import { DifficultyLevel } from "../types";
@@ -22,13 +21,11 @@ import { DifficultyLevel } from "../types";
 interface HomeViewProps {
   onStartGame: (name: string, difficulty: DifficultyLevel) => void;
   onOpenLeaderboard: () => void;
-  onOpenGeminiChat?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onStartGame,
   onOpenLeaderboard,
-  onOpenGeminiChat,
 }) => {
   const [nameInput, setNameInput] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>("Medium");
@@ -249,20 +246,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
       {/* Quick Action Navigation Buttons */}
       <div className="flex flex-wrap items-center justify-center gap-3">
-        {onOpenGeminiChat && (
-          <button
-            id="home_view_gemini_comms_btn"
-            onClick={() => {
-              playKeyClickSound();
-              onOpenGeminiChat();
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#11131a] border border-amber-500/40 hover:border-amber-400 text-amber-400 hover:text-amber-300 text-xs font-semibold uppercase tracking-wider transition shadow-md"
-          >
-            <Bot className="w-4 h-4" />
-            <span>Gemini AI Comms</span>
-          </button>
-        )}
-
         <button
           id="home_view_leaderboard_btn"
           onClick={() => {

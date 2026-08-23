@@ -7,7 +7,6 @@ import { LeaderboardView } from "./components/LeaderboardView";
 import { BonusChamberModal } from "./components/BonusChamberModal";
 import { SoundSettingsModal } from "./components/SoundSettingsModal";
 import { VictoryModal } from "./components/VictoryModal";
-import { GeminiChatModal } from "./components/GeminiChatModal";
 import { Room1WordScramble } from "./components/Room1WordScramble";
 import { Room2Decapitated } from "./components/Room2Decapitated";
 import { Room3AIRiddle } from "./components/Room3AIRiddle";
@@ -22,7 +21,7 @@ import {
   initAudioContext,
   playKeyClickSound,
 } from "./utils/audio";
-import { AlertTriangle, RotateCcw, Sparkles, HelpCircle, X, Loader2, Bot } from "lucide-react";
+import { AlertTriangle, RotateCcw, Sparkles, HelpCircle, X, Loader2 } from "lucide-react";
 import { saveLeaderboardEntry } from "./services/firebase";
 
 export function App() {
@@ -48,7 +47,6 @@ export function App() {
   // Modals
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBonusModal, setShowBonusModal] = useState(false);
-  const [showGeminiChat, setShowGeminiChat] = useState(false);
 
   // Synchronize with external sound settings updates & audio listeners
   useEffect(() => {
@@ -226,7 +224,6 @@ export function App() {
         gameStarted={gameStarted && !isVictory && !isGameOver}
         onOpenLeaderboard={() => setShowLeaderboard(true)}
         onOpenBonusModal={() => setShowBonusModal(true)}
-        onOpenGeminiChat={() => setShowGeminiChat(true)}
         onResetGame={handleResetGame}
         soundSettings={soundSettings}
         onOpenSoundSettings={() => setShowSoundSettingsModal(true)}
@@ -241,7 +238,6 @@ export function App() {
           <HomeView
             onStartGame={handleStartGame}
             onOpenLeaderboard={() => setShowLeaderboard(true)}
-            onOpenGeminiChat={() => setShowGeminiChat(true)}
           />
         ) : isGameOver ? (
           /* Game Over Screen */
@@ -284,7 +280,6 @@ export function App() {
               onRequestHint={handleRequestHint}
               onSelectRoom={(r) => setCurrentRoom(r)}
               onOpenBonusModal={() => setShowBonusModal(true)}
-              onOpenGeminiChat={() => setShowGeminiChat(true)}
             />
 
             <section className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)]">
@@ -337,20 +332,6 @@ export function App() {
                 </AnimatePresence>
               </div>
             </section>
-
-            {/* Floating Gemini AI Comms Quick Action Button */}
-            <button
-              id="floating_gemini_comms_btn"
-              onClick={() => {
-                playKeyClickSound();
-                setShowGeminiChat(true);
-              }}
-              className="fixed bottom-14 right-6 z-30 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] transition hover:scale-105"
-              title="Open Gemini AI Tactical Comms"
-            >
-              <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">AI Tactical Comms</span>
-            </button>
           </div>
         )}
       </main>
@@ -392,27 +373,6 @@ export function App() {
         onClose={() => setShowSoundSettingsModal(false)}
         soundSettings={soundSettings}
         onUpdateSettings={setSoundSettings}
-      />
-
-      {/* Gemini AI Multi-turn Tactical Comms Modal */}
-      <GeminiChatModal
-        isOpen={showGeminiChat}
-        onClose={() => setShowGeminiChat(false)}
-        currentRoom={currentRoom}
-        roomName={
-          currentRoom === 1
-            ? "Campus Dorms (Word Scramble)"
-            : currentRoom === 2
-            ? "Cyber Archives (Decapitated Cipher)"
-            : currentRoom === 3
-            ? "AI Sentinel Core (Neural Riddles)"
-            : currentRoom === 4
-            ? "Rebus Gallery (Visual Wordplay)"
-            : "Master Core (Matchstick & Fibonacci)"
-        }
-        timeRemaining={remainingTime}
-        difficulty={difficulty}
-        unlockedRooms={unlockedRooms}
       />
 
       {/* AI Tactical Hint Modal */}
