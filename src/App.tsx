@@ -13,6 +13,7 @@ import { Room3AIRiddle } from "./components/Room3AIRiddle";
 import { Room4Rebus } from "./components/Room4Rebus";
 import { Room5Matchstick } from "./components/Room5Matchstick";
 import { ClueItem, DifficultyLevel, SoundSettings } from "./types";
+import { isValidPlayerName, sanitizePlayerName } from "./utils/playerValidation";
 import {
   playErrorBuzzer,
   getSoundSettings,
@@ -80,8 +81,8 @@ export function App() {
     timeRem: number,
     diff: DifficultyLevel
   ) => {
-    if (!name || name.trim().length < 2) return;
-    const cleanName = name.trim();
+    if (!isValidPlayerName(name)) return;
+    const cleanName = sanitizePlayerName(name);
     const entry = {
       player: cleanName,
       score: currentScore,
@@ -91,20 +92,25 @@ export function App() {
       completed_at: new Date().toISOString(),
     };
 
-    // 1. Save to local storage cache
+    // 1. Save to local storage cache with 1 record per player constraint
     try {
       const raw = localStorage.getItem("ai_escape_room_user_scores");
       let list: any[] = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) list = [];
-      const idx = list.findIndex((e: any) => e && e.player && e.player.toLowerCase() === cleanName.toLowerCase());
+      const cleanList = list.filter((e: any) => e && isValidPlayerName(e.player));
+      const idx = cleanList.findIndex((e: any) => e.player.toLowerCase() === cleanName.toLowerCase());
       if (idx >= 0) {
-        if (currentScore >= list[idx].score) {
-          list[idx] = entry;
+        if (
+          currentScore > cleanList[idx].score ||
+          (currentScore === cleanList[idx].score && roomsCount > cleanList[idx].rooms_completed) ||
+          (currentScore === cleanList[idx].score && roomsCount === cleanList[idx].rooms_completed && timeRem >= cleanList[idx].time_remaining)
+        ) {
+          cleanList[idx] = entry;
         }
       } else {
-        list.push(entry);
+        cleanList.push(entry);
       }
-      localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(list));
+      localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(cleanList));
     } catch {
       // safe fallback
     }
@@ -125,8 +131,9 @@ export function App() {
     initAudioContext();
     const diffTimer = diff === "Easy" ? 1200 : diff === "Hard" ? 600 : 900;
     const diffHints = diff === "Easy" ? 5 : diff === "Hard" ? 1 : 3;
+    const cleanName = sanitizePlayerName(name);
 
-    setPlayerName(name);
+    setPlayerName(cleanName);
     setDifficulty(diff);
     setGameStarted(true);
     setCurrentRoom(1);

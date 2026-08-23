@@ -40,23 +40,56 @@ if (!fs.existsSync(LEADERBOARD_PATH)) {
   fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify([], null, 2));
 }
 
-// Filter helper to exclude placeholder/bot names
-const MOCK_NAMES = new Set([
+// Filter helper to exclude guest, placeholder, bot, and test names
+const BANNED_EXACT_NAMES = new Set([
   "cybersherlock",
   "agentcipher",
   "neohacker",
   "byteenigma",
   "agent phoenix",
   "anonymous",
-  "test",
+  "anon",
   "admin",
+  "administrator",
+  "root",
+  "test",
+  "tester",
+  "testing",
+  "null",
+  "undefined",
+  "nan",
+  "unknown",
+  "someone",
+  "nobody",
+  "no name",
+  "noname",
+  "guest",
+  "player",
+  "user",
+  "operative",
+  "agent",
 ]);
+
+const BANNED_PATTERNS = [
+  /^guest(\s|_|-|\d)*$/i,
+  /^player(\s|_|-|\d)*$/i,
+  /^operative(\s|_|-|\d)*$/i,
+  /^agent(\s|_|-|\d)*$/i,
+  /^user(\s|_|-|\d)*$/i,
+  /^(anon|anonymous)(\s|_|-|\d)*$/i,
+  /^test(er|ing)?(\s|_|-|\d)*$/i,
+  /^bot(\s|_|-|\d)*$/i,
+];
 
 function isRealPlayer(name: any): boolean {
   if (!name || typeof name !== "string") return false;
   const clean = name.trim().toLowerCase();
-  if (clean.length < 2) return false;
-  if (MOCK_NAMES.has(clean)) return false;
+  if (clean.length < 2 || clean.length > 25) return false;
+  if (!/[a-z0-9]/i.test(clean)) return false;
+  if (BANNED_EXACT_NAMES.has(clean)) return false;
+  for (const pattern of BANNED_PATTERNS) {
+    if (pattern.test(clean)) return false;
+  }
   return true;
 }
 
@@ -84,14 +117,26 @@ app.get("/api/leaderboard", (req, res) => {
         const normalized = String(entry.player).trim().toLowerCase();
         const existing = playerMap.get(normalized);
         if (!existing) {
-          playerMap.set(normalized, entry);
+          playerMap.set(normalized, {
+            ...entry,
+            player: String(entry.player).trim(),
+            score: Number(entry.score) || 0,
+            rooms_completed: Number(entry.rooms_completed) || 0,
+            time_remaining: Number(entry.time_remaining) || 0,
+          });
         } else {
           if (
             entry.score > existing.score ||
             (entry.score === existing.score && (entry.rooms_completed || 0) > (existing.rooms_completed || 0)) ||
             (entry.score === existing.score && (entry.rooms_completed || 0) === (existing.rooms_completed || 0) && (entry.time_remaining || 0) > (existing.time_remaining || 0))
           ) {
-            playerMap.set(normalized, entry);
+            playerMap.set(normalized, {
+              ...entry,
+              player: String(entry.player).trim(),
+              score: Number(entry.score) || 0,
+              rooms_completed: Number(entry.rooms_completed) || 0,
+              time_remaining: Number(entry.time_remaining) || 0,
+            });
           }
         }
       }
@@ -121,7 +166,7 @@ app.post("/api/leaderboard", (req, res) => {
     }
 
     if (!isRealPlayer(cleanPlayer)) {
-      return res.status(400).json({ error: "Invalid player name" });
+      return res.status(400).json({ error: "Guest and placeholder names cannot be added to the leaderboard" });
     }
 
     let data: any[] = [];
@@ -145,15 +190,17 @@ app.post("/api/leaderboard", (req, res) => {
 
     // Filter and update or insert entry
     const filtered = data.filter((e: any) => e && isRealPlayer(e.player));
+    const normalizedKey = cleanPlayer.toLowerCase();
     const existingIndex = filtered.findIndex(
-      (e: any) => e.player.toLowerCase() === cleanPlayer.toLowerCase()
+      (e: any) => String(e.player).trim().toLowerCase() === normalizedKey
     );
 
     if (existingIndex >= 0) {
       const existing = filtered[existingIndex];
       if (
         newEntry.score > existing.score ||
-        (newEntry.score === existing.score && newEntry.rooms_completed >= existing.rooms_completed && newEntry.time_remaining >= existing.time_remaining)
+        (newEntry.score === existing.score && newEntry.rooms_completed > existing.rooms_completed) ||
+        (newEntry.score === existing.score && newEntry.rooms_completed === existing.rooms_completed && newEntry.time_remaining >= existing.time_remaining)
       ) {
         filtered[existingIndex] = newEntry;
       }
@@ -161,26 +208,43 @@ app.post("/api/leaderboard", (req, res) => {
       filtered.push(newEntry);
     }
 
-    // Keep unique map
+    // Keep strictly 1 record per unique player name
     const playerMap = new Map<string, any>();
     for (const entry of filtered) {
       if (!entry || !isRealPlayer(entry.player)) continue;
-      const normalized = String(entry.player).trim().toLowerCase();
-      const existing = playerMap.get(normalized);
+      const key = String(entry.player).trim().toLowerCase();
+      const existing = playerMap.get(key);
       if (!existing) {
-        playerMap.set(normalized, entry);
+        playerMap.set(key, {
+          ...entry,
+          player: String(entry.player).trim(),
+          score: Number(entry.score) || 0,
+          rooms_completed: Number(entry.rooms_completed) || 0,
+          time_remaining: Number(entry.time_remaining) || 0,
+        });
       } else {
         if (
           entry.score > existing.score ||
           (entry.score === existing.score && entry.rooms_completed > existing.rooms_completed) ||
           (entry.score === existing.score && entry.rooms_completed === existing.rooms_completed && entry.time_remaining > existing.time_remaining)
         ) {
-          playerMap.set(normalized, entry);
+          playerMap.set(key, {
+            ...entry,
+            player: String(entry.player).trim(),
+            score: Number(entry.score) || 0,
+            rooms_completed: Number(entry.rooms_completed) || 0,
+            time_remaining: Number(entry.time_remaining) || 0,
+          });
         }
       }
     }
 
-    const cleanData = Array.from(playerMap.values());
+    const cleanData = Array.from(playerMap.values()).sort((a: any, b: any) => {
+      if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
+      if ((b.rooms_completed || 0) !== (a.rooms_completed || 0)) return (b.rooms_completed || 0) - (a.rooms_completed || 0);
+      return (b.time_remaining || 0) - (a.time_remaining || 0);
+    });
+
     fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify(cleanData, null, 2));
     return res.json({ success: true, entry: newEntry });
   } catch (err) {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Lock, Play, ShieldAlert, Sparkles, Trophy, BookOpen, KeyRound, Cpu, Eye, Binary, Zap, ShieldCheck, Flame, AlertTriangle } from "lucide-react";
 import { playSuccessChime, playKeyClickSound } from "../utils/audio";
 import { DifficultyLevel } from "../types";
+import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
 
 interface HomeViewProps {
   onStartGame: (name: string, difficulty: DifficultyLevel) => void;
@@ -14,12 +15,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [nameInput, setNameInput] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>("Medium");
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nameInput.trim()) return;
+    const clean = sanitizePlayerName(nameInput);
+    if (!clean || clean.length < 2) {
+      setNameError("Codename must be at least 2 characters.");
+      return;
+    }
+    if (!isValidPlayerName(clean)) {
+      setNameError("Guest and generic placeholder names (e.g. 'Guest', 'Player', 'Agent') cannot be registered on the real-time leaderboard. Please enter your unique codename.");
+      return;
+    }
+    setNameError(null);
     playSuccessChime();
-    onStartGame(nameInput.trim(), selectedDifficulty);
+    onStartGame(clean, selectedDifficulty);
   };
 
   const difficultyDetails: Record<DifficultyLevel, {
@@ -153,12 +164,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 id="player_codename_input"
                 type="text"
                 value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
+                onChange={(e) => {
+                  setNameInput(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
                 placeholder="ENTER PLAYER NAME (E.G. CIPHER_7)..."
                 maxLength={25}
                 required
-                className="w-full bg-[#0a0b10] border border-[#2d2d3d] rounded-lg px-4 py-3 text-white placeholder-[#374151] focus:outline-none focus:border-amber-500/50 uppercase tracking-[0.2em] font-mono text-xs"
+                className={`w-full bg-[#0a0b10] border rounded-lg px-4 py-3 text-white placeholder-[#374151] focus:outline-none uppercase tracking-[0.2em] font-mono text-xs ${
+                  nameError ? "border-rose-500 focus:border-rose-400" : "border-[#2d2d3d] focus:border-amber-500/50"
+                }`}
               />
+              {nameError && (
+                <p className="text-[11px] text-rose-400 font-mono flex items-center gap-1.5 pt-1">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{nameError}</span>
+                </p>
+              )}
             </div>
 
             {/* Difficulty Level Selection */}

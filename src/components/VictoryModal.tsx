@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Trophy, Award, Clock, ArrowRight, RotateCcw, ShieldCheck, Sparkles, CheckCircle2, Flame, AlertTriangle } from "lucide-react";
 import { playSuccessChime, playKeyClickSound } from "../utils/audio";
 import { DifficultyLevel } from "../types";
+import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
 
 interface VictoryModalProps {
   playerName: string;
@@ -37,9 +38,9 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
     playSuccessChime();
 
-    // Automatically submit score to backend leaderboard
-    const cleanPlayer = playerName?.trim() || "";
-    if (cleanPlayer && cleanPlayer.length >= 2) {
+    // Automatically submit score to backend leaderboard if valid real player
+    if (isValidPlayerName(playerName)) {
+      const cleanPlayer = sanitizePlayerName(playerName);
       const entry = {
         player: cleanPlayer,
         score: totalScore,
@@ -53,15 +54,16 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         const raw = localStorage.getItem("ai_escape_room_user_scores");
         let list: any[] = raw ? JSON.parse(raw) : [];
         if (!Array.isArray(list)) list = [];
-        const idx = list.findIndex((e: any) => e && e.player && e.player.toLowerCase() === cleanPlayer.toLowerCase());
+        const cleanList = list.filter((e: any) => e && isValidPlayerName(e.player));
+        const idx = cleanList.findIndex((e: any) => e.player.toLowerCase() === cleanPlayer.toLowerCase());
         if (idx >= 0) {
-          if (totalScore >= list[idx].score) {
-            list[idx] = entry;
+          if (totalScore >= cleanList[idx].score) {
+            cleanList[idx] = entry;
           }
         } else {
-          list.push(entry);
+          cleanList.push(entry);
         }
-        localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(list));
+        localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(cleanList));
       } catch {}
 
       fetch("/api/leaderboard", {

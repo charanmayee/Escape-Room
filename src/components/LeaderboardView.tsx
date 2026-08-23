@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Trophy, Medal, ArrowLeft, RefreshCw, Radio, CheckCircle, Clock } from "lucide-react";
 import { LeaderboardEntry } from "../types";
+import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
 
 interface LeaderboardViewProps {
   onBack: () => void;
@@ -23,11 +24,14 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
           const localList: LeaderboardEntry[] = JSON.parse(rawLocal);
           if (Array.isArray(localList) && localList.length > 0) {
             for (const item of localList) {
-              if (item && item.player && item.player.length >= 2) {
+              if (item && isValidPlayerName(item.player)) {
                 await fetch("/api/leaderboard", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(item),
+                  body: JSON.stringify({
+                    ...item,
+                    player: sanitizePlayerName(item.player),
+                  }),
                 }).catch(() => {});
               }
             }
@@ -41,23 +45,10 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.leaderboard)) {
-          // Banned bot/mock names safeguard
-          const bannedNames = new Set([
-            "cybersherlock",
-            "agentcipher",
-            "neohacker",
-            "byteenigma",
-            "agent phoenix",
-            "anonymous",
-            "test",
-            "admin",
-          ]);
-
           const playerMap = new Map<string, LeaderboardEntry>();
           for (const entry of data.leaderboard) {
-            if (!entry || !entry.player) continue;
+            if (!entry || !isValidPlayerName(entry.player)) continue;
             const key = entry.player.trim().toLowerCase();
-            if (key.length < 2 || bannedNames.has(key)) continue;
 
             const existing = playerMap.get(key);
             if (!existing) {
