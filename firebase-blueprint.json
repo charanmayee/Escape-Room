@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profiles",
+      "description": "Registered player profiles with stats, achievements, and persistent progress",
+      "fields": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User display name or player codename" },
+        "email": { "type": "string", "description": "User email" },
+        "photoURL": { "type": "string", "description": "Avatar photo URL" },
+        "bestScore": { "type": "number", "description": "Highest score achieved" },
+        "totalEscapes": { "type": "number", "description": "Count of successful facility escapes" },
+        "gamesPlayed": { "type": "number", "description": "Total games started" },
+        "createdAt": { "type": "string", "description": "Account creation timestamp" },
+        "lastLoginAt": { "type": "string", "description": "Last active timestamp" }
+      }
+    },
+    "leaderboard": {
+      "title": "Global Leaderboard Entries",
+      "description": "Verified game run scores, time left, difficulty tier, and completion records",
+      "fields": {
+        "player": { "type": "string", "description": "Player name or codename" },
+        "userId": { "type": "string", "description": "Firebase user ID if authenticated" },
+        "score": { "type": "number", "description": "Final score earned" },
+        "rooms_completed": { "type": "number", "description": "Number of chambers completed (1-5)" },
+        "time_remaining": { "type": "number", "description": "Remaining time in seconds" },
+        "difficulty": { "type": "string", "description": "Easy, Medium, or Hard" },
+        "completed_at": { "type": "string", "description": "ISO timestamp of completion" },
+        "photoURL": { "type": "string", "description": "Player avatar if authenticated" }
+      }
+    },
+    "chat_messages": {
+      "title": "Gemini Chat History",
+      "description": "Multi-turn conversations with AI Sentinel and Tactical Escape Companions",
+      "fields": {
+        "userId": { "type": "string", "description": "User identifier" },
+        "role": { "type": "string", "description": "user or model" },
+        "botPersona": { "type": "string", "description": "Persona ID: sentinel, professor, hacker, or speedrunner" },
+        "text": { "type": "string", "description": "Message content" },
+        "timestamp": { "type": "string", "description": "Message timestamp" }
+      }
+    }
+  }
+}

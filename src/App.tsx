@@ -7,21 +7,23 @@ import { LeaderboardView } from "./components/LeaderboardView";
 import { BonusChamberModal } from "./components/BonusChamberModal";
 import { SoundSettingsModal } from "./components/SoundSettingsModal";
 import { VictoryModal } from "./components/VictoryModal";
+import { GeminiChatModal } from "./components/GeminiChatModal";
 import { Room1WordScramble } from "./components/Room1WordScramble";
 import { Room2Decapitated } from "./components/Room2Decapitated";
 import { Room3AIRiddle } from "./components/Room3AIRiddle";
 import { Room4Rebus } from "./components/Room4Rebus";
 import { Room5Matchstick } from "./components/Room5Matchstick";
 import { ClueItem, DifficultyLevel, SoundSettings } from "./types";
-import { isValidPlayerName, sanitizePlayerName } from "./utils/playerValidation";
 import {
   playErrorBuzzer,
   getSoundSettings,
   subscribeSoundSettings,
   updateSoundSettings,
   initAudioContext,
+  playKeyClickSound,
 } from "./utils/audio";
-import { AlertTriangle, RotateCcw, Sparkles, HelpCircle, X, Loader2 } from "lucide-react";
+import { AlertTriangle, RotateCcw, Sparkles, HelpCircle, X, Loader2, Bot } from "lucide-react";
+import { saveLeaderboardEntry } from "./services/firebase";
 
 export function App() {
   const [playerName, setPlayerName] = useState("");
@@ -46,6 +48,7 @@ export function App() {
   // Modals
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBonusModal, setShowBonusModal] = useState(false);
+  const [showGeminiChat, setShowGeminiChat] = useState(false);
 
   // Synchronize with external sound settings updates & audio listeners
   useEffect(() => {
@@ -81,8 +84,8 @@ export function App() {
     timeRem: number,
     diff: DifficultyLevel
   ) => {
-    if (!isValidPlayerName(name)) return;
-    const cleanName = sanitizePlayerName(name);
+    if (!name || name.trim().length < 2) return;
+    const cleanName = name.trim();
     const entry = {
       player: cleanName,
       score: currentScore,
@@ -92,30 +95,10 @@ export function App() {
       completed_at: new Date().toISOString(),
     };
 
-    // 1. Save to local storage cache with 1 record per player constraint
-    try {
-      const raw = localStorage.getItem("ai_escape_room_user_scores");
-      let list: any[] = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(list)) list = [];
-      const cleanList = list.filter((e: any) => e && isValidPlayerName(e.player));
-      const idx = cleanList.findIndex((e: any) => e.player.toLowerCase() === cleanName.toLowerCase());
-      if (idx >= 0) {
-        if (
-          currentScore > cleanList[idx].score ||
-          (currentScore === cleanList[idx].score && roomsCount > cleanList[idx].rooms_completed) ||
-          (currentScore === cleanList[idx].score && roomsCount === cleanList[idx].rooms_completed && timeRem >= cleanList[idx].time_remaining)
-        ) {
-          cleanList[idx] = entry;
-        }
-      } else {
-        cleanList.push(entry);
-      }
-      localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(cleanList));
-    } catch {
-      // safe fallback
-    }
+    // 1. Direct Firestore cloud sync
+    saveLeaderboardEntry(entry);
 
-    // 2. Transmit to server API
+    // 2. Transmit to server API as secondary sync
     try {
       await fetch("/api/leaderboard", {
         method: "POST",
@@ -123,7 +106,7 @@ export function App() {
         body: JSON.stringify(entry),
       });
     } catch (e) {
-      console.warn("Could not sync score to server:", e);
+      console.warn("Server score sync notice:", e);
     }
   };
 
@@ -131,9 +114,8 @@ export function App() {
     initAudioContext();
     const diffTimer = diff === "Easy" ? 1200 : diff === "Hard" ? 600 : 900;
     const diffHints = diff === "Easy" ? 5 : diff === "Hard" ? 1 : 3;
-    const cleanName = sanitizePlayerName(name);
 
-    setPlayerName(cleanName);
+    setPlayerName(name);
     setDifficulty(diff);
     setGameStarted(true);
     setCurrentRoom(1);
@@ -233,7 +215,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0b10] text-[#e0e0e0] flex flex-col font-sans selection:bg-amber-500 selection:text-[#0a0b10]">
+    <div className="min-h-screen bg-[#0a0b10] text-[#e0e0e0] flex flex-col font-mono selection:bg-amber-500 selection:text-[#0a0b10]">
       {/* Top Navigation with Integrated Sound Settings Manager */}
       <Navbar
         playerName={playerName}
@@ -244,6 +226,7 @@ export function App() {
         gameStarted={gameStarted && !isVictory && !isGameOver}
         onOpenLeaderboard={() => setShowLeaderboard(true)}
         onOpenBonusModal={() => setShowBonusModal(true)}
+        onOpenGeminiChat={() => setShowGeminiChat(true)}
         onResetGame={handleResetGame}
         soundSettings={soundSettings}
         onOpenSoundSettings={() => setShowSoundSettingsModal(true)}
@@ -251,13 +234,14 @@ export function App() {
       />
 
       {/* Main App Layout */}
-      <main className="flex-1 flex flex-col min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)]">
+      <main className="flex-1 flex flex-col min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)] relative">
         {showLeaderboard ? (
           <LeaderboardView onBack={() => setShowLeaderboard(false)} />
         ) : !gameStarted ? (
           <HomeView
             onStartGame={handleStartGame}
             onOpenLeaderboard={() => setShowLeaderboard(true)}
+            onOpenGeminiChat={() => setShowGeminiChat(true)}
           />
         ) : isGameOver ? (
           /* Game Over Screen */
@@ -274,7 +258,7 @@ export function App() {
             </p>
             <div className="p-4 rounded-lg bg-[#0a0b10] border border-[#2d2d3d] text-xs">
               <span className="text-[#6b7280] uppercase tracking-widest text-[10px] block mb-1">Final Mission Score</span>
-              <span className="font-mono text-xl font-bold text-amber-500">{score} PTS</span>
+              <span className="text-xl font-bold text-amber-500">{score} PTS</span>
             </div>
             <button
               onClick={handleResetGame}
@@ -300,6 +284,7 @@ export function App() {
               onRequestHint={handleRequestHint}
               onSelectRoom={(r) => setCurrentRoom(r)}
               onOpenBonusModal={() => setShowBonusModal(true)}
+              onOpenGeminiChat={() => setShowGeminiChat(true)}
             />
 
             <section className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)]">
@@ -352,16 +337,30 @@ export function App() {
                 </AnimatePresence>
               </div>
             </section>
+
+            {/* Floating Gemini AI Comms Quick Action Button */}
+            <button
+              id="floating_gemini_comms_btn"
+              onClick={() => {
+                playKeyClickSound();
+                setShowGeminiChat(true);
+              }}
+              className="fixed bottom-14 right-6 z-30 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.4)] transition hover:scale-105"
+              title="Open Gemini AI Tactical Comms"
+            >
+              <Bot className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Tactical Comms</span>
+            </button>
           </div>
         )}
       </main>
 
       {/* High Density Terminal Status Footer */}
-      <footer className="h-11 bg-[#0d0f14] border-t border-[#2d2d3d] px-4 sm:px-6 flex flex-wrap items-center justify-between text-[10px] uppercase tracking-widest text-[#4b5563] font-mono select-none">
+      <footer className="h-11 bg-[#0d0f14] border-t border-[#2d2d3d] px-4 sm:px-6 flex flex-wrap items-center justify-between text-[10px] uppercase tracking-widest text-[#4b5563] select-none">
         <div className="flex items-center gap-2">
           <span>System Status: <span className="text-green-500 font-bold">Active</span></span>
           <span className="text-[#2d2d3d] hidden sm:inline">//</span>
-          <span className="hidden sm:inline">Connection: <span className="text-green-500 font-bold">Secured</span></span>
+          <span className="hidden sm:inline">Database: <span className="text-amber-400 font-bold">Firestore Sync</span></span>
           <span className="text-[#2d2d3d] hidden sm:inline">//</span>
           <span className="text-amber-500 font-bold">{difficulty.toUpperCase()} TIER</span>
           <span className="text-[#2d2d3d] hidden sm:inline">//</span>
@@ -383,7 +382,7 @@ export function App() {
           Terminal Session: <span className="text-[#9ca3af]">{playerName ? `${playerName.toLowerCase().replace(/\s+/g, '-')}@ai-node` : "guest@ai-node-03"}</span>
         </div>
         <div>
-          Build <span className="text-amber-500/80">v2.4.11-AUDIO</span>
+          Build <span className="text-amber-500/80">v2.5.0-FIREBASE</span>
         </div>
       </footer>
 
@@ -395,10 +394,31 @@ export function App() {
         onUpdateSettings={setSoundSettings}
       />
 
+      {/* Gemini AI Multi-turn Tactical Comms Modal */}
+      <GeminiChatModal
+        isOpen={showGeminiChat}
+        onClose={() => setShowGeminiChat(false)}
+        currentRoom={currentRoom}
+        roomName={
+          currentRoom === 1
+            ? "Campus Dorms (Word Scramble)"
+            : currentRoom === 2
+            ? "Cyber Archives (Decapitated Cipher)"
+            : currentRoom === 3
+            ? "AI Sentinel Core (Neural Riddles)"
+            : currentRoom === 4
+            ? "Rebus Gallery (Visual Wordplay)"
+            : "Master Core (Matchstick & Fibonacci)"
+        }
+        timeRemaining={remainingTime}
+        difficulty={difficulty}
+        unlockedRooms={unlockedRooms}
+      />
+
       {/* AI Tactical Hint Modal */}
       {hintModalData && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 font-mono relative">
+          <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 relative">
             <div className="flex items-center justify-between border-b border-[#2d2d3d] pb-3">
               <div className="flex items-center gap-2 text-amber-400 font-bold text-xs uppercase tracking-wider">
                 <Sparkles className="w-4 h-4 text-amber-500" />

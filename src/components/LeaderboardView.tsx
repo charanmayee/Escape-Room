@@ -1,10 +1,21 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Trophy, Medal, ArrowLeft, RefreshCw, Radio, CheckCircle, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import {
+  Trophy,
+  Medal,
+  ArrowLeft,
+  RefreshCw,
+  Radio,
+  Clock,
+  Search,
+  Zap,
+} from "lucide-react";
 import { LeaderboardEntry } from "../types";
-import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
+import { subscribeLeaderboard } from "../services/firebase";
+import { playKeyClickSound } from "../utils/audio";
 
 interface LeaderboardViewProps {
   onBack: () => void;
+  onSelectDifficulty?: (diff: any) => void;
 }
 
 export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
@@ -12,70 +23,22 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const pollTimerRef = useRef<any>(null);
+  const [filterDiff, setFilterDiff] = useState<"All" | "Easy" | "Medium" | "Hard">("All");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchLeaderboard = async (isManual = false) => {
+  const fetchFallbackLeaderboard = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      // First, sync any local player scores stored in browser to server if needed
-      try {
-        const rawLocal = localStorage.getItem("ai_escape_room_user_scores");
-        if (rawLocal) {
-          const localList: LeaderboardEntry[] = JSON.parse(rawLocal);
-          if (Array.isArray(localList) && localList.length > 0) {
-            for (const item of localList) {
-              if (item && isValidPlayerName(item.player)) {
-                await fetch("/api/leaderboard", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    ...item,
-                    player: sanitizePlayerName(item.player),
-                  }),
-                }).catch(() => {});
-              }
-            }
-          }
-        }
-      } catch {
-        // Safe failover for localStorage
-      }
-
       const res = await fetch("/api/leaderboard");
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.leaderboard)) {
-          const playerMap = new Map<string, LeaderboardEntry>();
-          for (const entry of data.leaderboard) {
-            if (!entry || !isValidPlayerName(entry.player)) continue;
-            const key = entry.player.trim().toLowerCase();
-
-            const existing = playerMap.get(key);
-            if (!existing) {
-              playerMap.set(key, entry);
-            } else {
-              if (
-                entry.score > existing.score ||
-                (entry.score === existing.score && (entry.rooms_completed || 0) > (existing.rooms_completed || 0)) ||
-                (entry.score === existing.score && (entry.rooms_completed || 0) === (existing.rooms_completed || 0) && (entry.time_remaining || 0) > (existing.time_remaining || 0))
-              ) {
-                playerMap.set(key, entry);
-              }
-            }
-          }
-
-          const sorted = Array.from(playerMap.values()).sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score;
-            if (b.rooms_completed !== a.rooms_completed) return b.rooms_completed - a.rooms_completed;
-            return b.time_remaining - a.time_remaining;
-          });
-
-          setEntries(sorted);
+          setEntries(data.leaderboard);
           setLastUpdated(new Date());
         }
       }
     } catch (e) {
-      console.error("Failed to load leaderboard:", e);
+      console.warn("Fallback leaderboard fetch warning:", e);
     } finally {
       setLoading(false);
       if (isManual) setTimeout(() => setIsRefreshing(false), 400);
@@ -83,16 +46,24 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
   };
 
   useEffect(() => {
-    fetchLeaderboard();
+    // 1. Subscribe to real-time Firestore Leaderboard
+    const unsubscribe = subscribeLeaderboard(
+      (liveEntries) => {
+        if (liveEntries && liveEntries.length > 0) {
+          setEntries(liveEntries);
+          setLastUpdated(new Date());
+          setLoading(false);
+        } else {
+          // If firestore collection is newly created or empty, fetch server fallback
+          fetchFallbackLeaderboard();
+        }
+      },
+      () => {
+        fetchFallbackLeaderboard();
+      }
+    );
 
-    // Setup live real-time auto-polling every 4 seconds
-    pollTimerRef.current = setInterval(() => {
-      fetchLeaderboard(false);
-    }, 4000);
-
-    return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-    };
+    return () => unsubscribe();
   }, []);
 
   const formatTime = (secs: number) => {
@@ -116,30 +87,49 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
     }
   };
 
+  // Filtered entries
+  const filteredEntries = entries.filter((item) => {
+    if (filterDiff !== "All") {
+      if ((item.difficulty || "Medium") !== filterDiff) return false;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      return item.player.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-200">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 animate-in fade-in duration-200 font-mono">
       {/* Top Header Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           id="leaderboard_back_btn"
-          onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] text-[#e0e0e0] hover:text-white hover:bg-[#222533] transition text-xs font-semibold uppercase tracking-wider font-mono shadow-md"
+          onClick={() => {
+            playKeyClickSound();
+            onBack();
+          }}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] text-[#e0e0e0] hover:text-white hover:bg-[#222533] transition text-xs font-semibold uppercase tracking-wider shadow-md"
         >
           <ArrowLeft className="w-4 h-4 text-amber-500" />
           <span>Back to Game</span>
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0a0b10] border border-green-500/30 text-green-400 text-[10px] font-mono font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0a0b10] border border-green-500/30 text-green-400 text-[10px] font-bold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span>Live Sync Active</span>
+            <span>Firestore Real-Time Sync</span>
           </div>
 
           <button
             id="refresh_leaderboard_btn"
-            onClick={() => fetchLeaderboard(true)}
+            onClick={() => {
+              playKeyClickSound();
+              fetchFallbackLeaderboard(true);
+            }}
             disabled={isRefreshing || loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] text-[#9ca3af] hover:text-amber-400 hover:bg-[#222533] transition text-xs font-mono font-bold uppercase"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] text-[#9ca3af] hover:text-amber-400 hover:bg-[#222533] transition text-xs font-bold uppercase"
             title="Refresh Leaderboard"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing || loading ? "animate-spin text-amber-400" : ""}`} />
@@ -153,27 +143,66 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
         <div className="inline-flex p-3.5 rounded-2xl bg-[#1a1c25] border border-amber-500/30 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
           <Trophy className="w-8 h-8 stroke-[2.5]" />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white uppercase font-mono">
+        <h1 className="text-2xl sm:text-3xl font-light tracking-tight text-white uppercase">
           Live Operative <span className="font-black text-amber-500 italic">Hall of Fame</span>
         </h1>
-        <p className="text-[#9ca3af] text-xs sm:text-sm font-mono max-w-lg mx-auto">
-          Real-time rankings of verified operatives who have played and cleared facility chambers.
+        <p className="text-[#9ca3af] text-xs sm:text-sm max-w-lg mx-auto">
+          Cloud-synchronized rankings of operatives who completed challenges across the facility.
         </p>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#11131a] border border-[#2d2d3d] rounded-xl">
+        {/* Tier Tabs */}
+        <div className="flex items-center gap-1 bg-[#0a0b10] p-1 rounded-lg border border-[#2d2d3d] text-xs overflow-x-auto">
+          {(["All", "Easy", "Medium", "Hard"] as const).map((tab) => {
+            return (
+              <button
+                key={tab}
+                id={`filter_${tab.toLowerCase()}_btn`}
+                onClick={() => {
+                  playKeyClickSound();
+                  setFilterDiff(tab);
+                }}
+                className={`px-3 py-1 rounded transition font-bold ${
+                  filterDiff === tab
+                    ? "bg-amber-500 text-[#0a0b10]"
+                    : "text-[#8c94a8] hover:text-white"
+                }`}
+              >
+                {tab === "All" ? "All Tiers" : tab}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative flex-1 sm:max-w-xs min-w-[200px]">
+          <Search className="w-3.5 h-3.5 text-[#6b7280] absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            id="search_operative_input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search operative name..."
+            className="w-full bg-[#0a0b10] border border-[#2d2d3d] focus:border-amber-500/60 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-[#5a6278] outline-none"
+          />
+        </div>
       </div>
 
       {/* Leaderboard Table Container */}
       <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm font-mono">
+          <table className="w-full text-left text-xs sm:text-sm">
             <thead className="bg-[#0a0b10] border-b border-[#2d2d3d] text-[#6b7280] uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="py-3.5 px-4 text-center w-14">Rank</th>
-                <th className="py-3.5 px-4">Player Name</th>
+                <th className="py-3.5 px-4">Operative</th>
                 <th className="py-3.5 px-4 text-center">Difficulty</th>
                 <th className="py-3.5 px-4 text-right">Score</th>
                 <th className="py-3.5 px-4 text-center">Chambers</th>
                 <th className="py-3.5 px-4 text-right">Time Left</th>
-                <th className="py-3.5 px-4 text-right hidden sm:table-cell">Completed</th>
+                <th className="py-3.5 px-4 text-right hidden sm:table-cell">Recorded</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2d2d3d]/60 text-[#e0e0e0]">
@@ -181,27 +210,32 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#6b7280]">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-500" />
-                    <span>Connecting to live operative database...</span>
+                    <span>Synchronizing with cloud Firestore database...</span>
                   </td>
                 </tr>
-              ) : entries.length === 0 ? (
+              ) : filteredEntries.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-12 text-center space-y-3">
                     <div className="text-3xl">🎯</div>
-                    <div className="text-sm text-white font-bold">No real player runs recorded yet!</div>
+                    <div className="text-sm text-white font-bold">
+                      {searchQuery ? "No operatives matching search filter" : "No scores recorded yet in this category"}
+                    </div>
                     <p className="text-xs text-[#9ca3af] max-w-md mx-auto">
-                      Be the first operative to start a game, clear chambers, and claim your place on the live leaderboard.
+                      Start a new escape mission, clear facility chambers, and your score will appear here instantly!
                     </p>
                   </td>
                 </tr>
               ) : (
-                entries.map((entry, index) => {
-                  const isTop3 = index < 3;
+                filteredEntries.map((entry, index) => {
+                  const isTop3 = index < 3 && filterDiff === "All" && !searchQuery;
                   const medalColors = ["text-amber-400", "text-slate-300", "text-amber-600"];
                   const diff = entry.difficulty || "Medium";
 
                   return (
-                    <tr key={`${entry.player}_${index}`} className="hover:bg-[#1a1c25]/60 transition">
+                    <tr
+                      key={`${entry.player}_${index}`}
+                      className="hover:bg-[#1a1c25]/60 transition"
+                    >
                       <td className="py-3.5 px-4 text-center font-bold">
                         {isTop3 ? (
                           <span className={`inline-flex items-center gap-1 font-black ${medalColors[index]}`}>
@@ -213,9 +247,12 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
                       </td>
                       <td className="py-3.5 px-4 font-bold text-white">
                         <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full bg-[#1e2333] border border-[#2d2d3d] flex items-center justify-center text-[10px] text-amber-400">
+                            {entry.player.charAt(0).toUpperCase()}
+                          </div>
                           <span>{entry.player}</span>
                           {entry.rooms_completed >= 5 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-950/80 text-green-400 border border-green-500/40 font-normal">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-950/80 text-green-400 border border-green-500/40 font-normal">
                               Escaped
                             </span>
                           )}
@@ -223,7 +260,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
                             diff === "Easy"
                               ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-400"
                               : diff === "Hard"
@@ -257,12 +294,12 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({ onBack }) => {
         </div>
 
         {/* Footer info */}
-        <div className="bg-[#0a0b10] border-t border-[#2d2d3d] px-4 py-2.5 flex flex-wrap items-center justify-between text-[10px] text-[#6b7280] font-mono">
+        <div className="bg-[#0a0b10] border-t border-[#2d2d3d] px-4 py-2.5 flex flex-wrap items-center justify-between text-[10px] text-[#6b7280]">
           <div className="flex items-center gap-1.5">
             <Radio className="w-3 h-3 text-green-500" />
             <span>Updated: {lastUpdated.toLocaleTimeString()}</span>
           </div>
-          <span>Total Real Operatives Registered: {entries.length}</span>
+          <span>Total Operative Records: {filteredEntries.length} of {entries.length}</span>
         </div>
       </div>
     </div>

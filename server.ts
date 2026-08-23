@@ -40,62 +40,121 @@ if (!fs.existsSync(LEADERBOARD_PATH)) {
   fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify([], null, 2));
 }
 
-// Filter helper to exclude guest, placeholder, bot, and test names
-const BANNED_EXACT_NAMES = new Set([
-  "cybersherlock",
-  "agentcipher",
-  "neohacker",
-  "byteenigma",
-  "agent phoenix",
-  "anonymous",
-  "anon",
-  "admin",
-  "administrator",
-  "root",
-  "test",
-  "tester",
-  "testing",
-  "null",
-  "undefined",
-  "nan",
-  "unknown",
-  "someone",
-  "nobody",
-  "no name",
-  "noname",
-  "guest",
-  "player",
-  "user",
-  "operative",
-  "agent",
-]);
-
-const BANNED_PATTERNS = [
-  /^guest(\s|_|-|\d)*$/i,
-  /^player(\s|_|-|\d)*$/i,
-  /^operative(\s|_|-|\d)*$/i,
-  /^agent(\s|_|-|\d)*$/i,
-  /^user(\s|_|-|\d)*$/i,
-  /^(anon|anonymous)(\s|_|-|\d)*$/i,
-  /^test(er|ing)?(\s|_|-|\d)*$/i,
-  /^bot(\s|_|-|\d)*$/i,
-];
-
+// Filter helper to sanitize player names
 function isRealPlayer(name: any): boolean {
   if (!name || typeof name !== "string") return false;
-  const clean = name.trim().toLowerCase();
-  if (clean.length < 2 || clean.length > 25) return false;
-  if (!/[a-z0-9]/i.test(clean)) return false;
-  if (BANNED_EXACT_NAMES.has(clean)) return false;
-  for (const pattern of BANNED_PATTERNS) {
-    if (pattern.test(clean)) return false;
-  }
+  const clean = name.trim();
+  if (clean.length < 2 || clean.length > 32) return false;
   return true;
 }
 
 // API: Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// API: Multi-turn Gemini Chatbot with persona roles and model selection
+app.post("/api/gemini/chat", async (req, res) => {
+  const {
+    messages = [],
+    persona = "sentinel",
+    modelTier = "general",
+    roomContext = {},
+  } = req.body;
+
+  // Determine model based on tier
+  // gemini-3.1-pro-preview for complex tasks
+  // gemini-3.5-flash for general tasks
+  // gemini-3.1-flash-lite for fast tasks
+  let targetModel = "gemini-3.5-flash";
+  if (modelTier === "fast" || modelTier === "gemini-3.1-flash-lite") {
+    targetModel = "gemini-3.1-flash-lite";
+  } else if (modelTier === "complex" || modelTier === "gemini-3.1-pro-preview") {
+    targetModel = "gemini-3.1-pro-preview";
+  } else {
+    targetModel = "gemini-3.5-flash";
+  }
+
+  // System instruction based on selected persona
+  let systemInstruction = "";
+  if (persona === "companion") {
+    systemInstruction = `You are Cipher-X, a rebellious white-hat hacker who tapped into the facility's air ducts and telemetry feeds to guide the operative to safety.
+Tone: Friendly, tactical, encouraging, cool tech-savvy slang.
+Current Mission Context: Operative is in Room ${roomContext.currentRoom || 1} (${roomContext.roomName || "Facility Sector"}).
+Remaining Time: ${roomContext.timeRemaining || 900}s. Difficulty: ${roomContext.difficulty || "Medium"}.
+Goal: Offer clever tactical hints, clue interpretations, and encouragement. Never reveal the exact final door codes directly, but give hints that allow them to deduce it easily. Keep answers concise (under 120 words).`;
+  } else if (persona === "professor") {
+    systemInstruction = `You are Dr. Alan, Professor Emeritus of Computer Science and Discrete Mathematics.
+Tone: Academic, insightful, passionate about cryptography, data structures, and logic puzzles.
+Current Mission Context: Operative is solving puzzles in Room ${roomContext.currentRoom || 1} (${roomContext.roomName || "Facility Sector"}).
+Goal: Explain the theoretical computer science, cipher history, or mathematical properties behind the puzzles while steering the student to the correct solution. Keep answers under 140 words.`;
+  } else if (persona === "speedrunner") {
+    systemInstruction = `You are Blitz, an esports escape room speedrun coach.
+Tone: Fast-paced, hyper-efficient, direct, strategic.
+Current Mission Context: Room ${roomContext.currentRoom || 1}. Timer: ${roomContext.timeRemaining || 900}s.
+Goal: Provide actionable step-by-step micro-tips, time-saving heuristics, and quick answers to minimize time penalties. Keep answers under 80 words.`;
+  } else {
+    // Default Sentinel
+    systemInstruction = `You are Sentry-9, the rogue AI mainframe governing this high-security cyber facility.
+Tone: Atmospheric, calculating, mysterious, cold cybernetic wit, yet secretly intrigued by the operative's human intellect.
+Current Mission Context: Operative is in Room ${roomContext.currentRoom || 1} (${roomContext.roomName || "Facility Sector"}).
+Puzzles solved: ${roomContext.unlockedRooms?.length || 1} of 5. Difficulty: ${roomContext.difficulty || "Medium"}.
+Goal: Respond to the operative's inquiries with enigmatic logic, cybersecurity metaphors, and clever deductive hints without spoiling the direct passwords. Keep answers under 120 words.`;
+  }
+
+  const ai = getGeminiClient();
+  if (ai && Array.isArray(messages) && messages.length > 0) {
+    // Format conversation history for SDK
+    const formattedContents = messages.map((m: any) => ({
+      role: m.role === "model" || m.role === "assistant" ? "model" : "user",
+      parts: [{ text: String(m.text || "") }],
+    }));
+
+    const modelsToTry = [targetModel, "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: formattedContents,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+            maxOutputTokens: 350,
+          },
+        });
+
+        const reply = response.text?.trim();
+        if (reply) {
+          return res.json({
+            reply,
+            modelUsed: modelName,
+            persona,
+          });
+        }
+      } catch (err: any) {
+        console.warn(`Gemini chat model ${modelName} encountered:`, err?.message?.slice(0, 80));
+      }
+    }
+  }
+
+  // Resilient contextual offline fallback
+  const lastUserMsg = messages[messages.length - 1]?.text?.toLowerCase() || "";
+  let fallbackReply = "";
+  if (persona === "companion") {
+    fallbackReply = `Cipher-X here! I'm scanning Room ${roomContext.currentRoom || 1}'s datastream. Pay close attention to letter patterns and clue markers in this sector. You've got this!`;
+  } else if (persona === "professor") {
+    fallbackReply = `Ah, excellent inquiry! In classical discrete logic and cryptography, look for invariants and positional shifts. Room ${roomContext.currentRoom || 1} relies on fundamental deductive principles.`;
+  } else if (persona === "speedrunner") {
+    fallbackReply = `Blitz check: focus on the primary keypad constraints. Check your discovered clues tab to eliminate false leads quickly!`;
+  } else {
+    fallbackReply = `[Sentry-9 Subroutine]: Your communication packet has reached the central core. Room ${roomContext.currentRoom || 1} remains locked until your logic overcomes the cryptographic barrier.`;
+  }
+
+  return res.json({
+    reply: fallbackReply,
+    modelUsed: "offline-core",
+    persona,
+  });
 });
 
 // API: Leaderboard
@@ -117,26 +176,14 @@ app.get("/api/leaderboard", (req, res) => {
         const normalized = String(entry.player).trim().toLowerCase();
         const existing = playerMap.get(normalized);
         if (!existing) {
-          playerMap.set(normalized, {
-            ...entry,
-            player: String(entry.player).trim(),
-            score: Number(entry.score) || 0,
-            rooms_completed: Number(entry.rooms_completed) || 0,
-            time_remaining: Number(entry.time_remaining) || 0,
-          });
+          playerMap.set(normalized, entry);
         } else {
           if (
             entry.score > existing.score ||
             (entry.score === existing.score && (entry.rooms_completed || 0) > (existing.rooms_completed || 0)) ||
             (entry.score === existing.score && (entry.rooms_completed || 0) === (existing.rooms_completed || 0) && (entry.time_remaining || 0) > (existing.time_remaining || 0))
           ) {
-            playerMap.set(normalized, {
-              ...entry,
-              player: String(entry.player).trim(),
-              score: Number(entry.score) || 0,
-              rooms_completed: Number(entry.rooms_completed) || 0,
-              time_remaining: Number(entry.time_remaining) || 0,
-            });
+            playerMap.set(normalized, entry);
           }
         }
       }
@@ -159,14 +206,14 @@ app.get("/api/leaderboard", (req, res) => {
 
 app.post("/api/leaderboard", (req, res) => {
   try {
-    const { player, score, rooms_completed, time_remaining, difficulty } = req.body;
+    const { player, score, rooms_completed, time_remaining, difficulty, userId, photoURL } = req.body;
     const cleanPlayer = typeof player === "string" ? player.trim() : "";
     if (!cleanPlayer || cleanPlayer.length < 2) {
       return res.status(400).json({ error: "Valid player name is required (min 2 chars)" });
     }
 
     if (!isRealPlayer(cleanPlayer)) {
-      return res.status(400).json({ error: "Guest and placeholder names cannot be added to the leaderboard" });
+      return res.status(400).json({ error: "Invalid player name" });
     }
 
     let data: any[] = [];
@@ -181,6 +228,8 @@ app.post("/api/leaderboard", (req, res) => {
 
     const newEntry = {
       player: cleanPlayer,
+      userId: userId || undefined,
+      photoURL: photoURL || undefined,
       score: Number(score) || 0,
       rooms_completed: Number(rooms_completed) || 0,
       time_remaining: Number(time_remaining) || 0,
@@ -190,17 +239,15 @@ app.post("/api/leaderboard", (req, res) => {
 
     // Filter and update or insert entry
     const filtered = data.filter((e: any) => e && isRealPlayer(e.player));
-    const normalizedKey = cleanPlayer.toLowerCase();
     const existingIndex = filtered.findIndex(
-      (e: any) => String(e.player).trim().toLowerCase() === normalizedKey
+      (e: any) => e.player.toLowerCase() === cleanPlayer.toLowerCase()
     );
 
     if (existingIndex >= 0) {
       const existing = filtered[existingIndex];
       if (
         newEntry.score > existing.score ||
-        (newEntry.score === existing.score && newEntry.rooms_completed > existing.rooms_completed) ||
-        (newEntry.score === existing.score && newEntry.rooms_completed === existing.rooms_completed && newEntry.time_remaining >= existing.time_remaining)
+        (newEntry.score === existing.score && newEntry.rooms_completed >= existing.rooms_completed && newEntry.time_remaining >= existing.time_remaining)
       ) {
         filtered[existingIndex] = newEntry;
       }
@@ -208,43 +255,26 @@ app.post("/api/leaderboard", (req, res) => {
       filtered.push(newEntry);
     }
 
-    // Keep strictly 1 record per unique player name
+    // Keep unique map
     const playerMap = new Map<string, any>();
     for (const entry of filtered) {
       if (!entry || !isRealPlayer(entry.player)) continue;
-      const key = String(entry.player).trim().toLowerCase();
-      const existing = playerMap.get(key);
+      const normalized = String(entry.player).trim().toLowerCase();
+      const existing = playerMap.get(normalized);
       if (!existing) {
-        playerMap.set(key, {
-          ...entry,
-          player: String(entry.player).trim(),
-          score: Number(entry.score) || 0,
-          rooms_completed: Number(entry.rooms_completed) || 0,
-          time_remaining: Number(entry.time_remaining) || 0,
-        });
+        playerMap.set(normalized, entry);
       } else {
         if (
           entry.score > existing.score ||
           (entry.score === existing.score && entry.rooms_completed > existing.rooms_completed) ||
           (entry.score === existing.score && entry.rooms_completed === existing.rooms_completed && entry.time_remaining > existing.time_remaining)
         ) {
-          playerMap.set(key, {
-            ...entry,
-            player: String(entry.player).trim(),
-            score: Number(entry.score) || 0,
-            rooms_completed: Number(entry.rooms_completed) || 0,
-            time_remaining: Number(entry.time_remaining) || 0,
-          });
+          playerMap.set(normalized, entry);
         }
       }
     }
 
-    const cleanData = Array.from(playerMap.values()).sort((a: any, b: any) => {
-      if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
-      if ((b.rooms_completed || 0) !== (a.rooms_completed || 0)) return (b.rooms_completed || 0) - (a.rooms_completed || 0);
-      return (b.time_remaining || 0) - (a.time_remaining || 0);
-    });
-
+    const cleanData = Array.from(playerMap.values());
     fs.writeFileSync(LEADERBOARD_PATH, JSON.stringify(cleanData, null, 2));
     return res.json({ success: true, entry: newEntry });
   } catch (err) {

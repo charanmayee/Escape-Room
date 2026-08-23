@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Trophy, Award, Clock, ArrowRight, RotateCcw, ShieldCheck, Sparkles, CheckCircle2, Flame, AlertTriangle } from "lucide-react";
 import { playSuccessChime, playKeyClickSound } from "../utils/audio";
 import { DifficultyLevel } from "../types";
-import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
+import { saveLeaderboardEntry } from "../services/firebase";
 
 interface VictoryModalProps {
   playerName: string;
@@ -38,43 +38,29 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
     playSuccessChime();
 
-    // Automatically submit score to backend leaderboard if valid real player
-    if (isValidPlayerName(playerName)) {
-      const cleanPlayer = sanitizePlayerName(playerName);
-      const entry = {
-        player: cleanPlayer,
-        score: totalScore,
-        rooms_completed: 5,
-        time_remaining: remainingTime,
-        difficulty: difficulty,
-        completed_at: new Date().toISOString(),
-      };
+    // Automatically submit score to Firestore & backend leaderboard
+    const cleanPlayer = playerName?.trim() || "Anonymous Operative";
+    const entry = {
+      player: cleanPlayer,
+      score: totalScore,
+      rooms_completed: 5,
+      time_remaining: remainingTime,
+      difficulty: difficulty,
+      completed_at: new Date().toISOString(),
+    };
 
-      try {
-        const raw = localStorage.getItem("ai_escape_room_user_scores");
-        let list: any[] = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(list)) list = [];
-        const cleanList = list.filter((e: any) => e && isValidPlayerName(e.player));
-        const idx = cleanList.findIndex((e: any) => e.player.toLowerCase() === cleanPlayer.toLowerCase());
-        if (idx >= 0) {
-          if (totalScore >= cleanList[idx].score) {
-            cleanList[idx] = entry;
-          }
-        } else {
-          cleanList.push(entry);
-        }
-        localStorage.setItem("ai_escape_room_user_scores", JSON.stringify(cleanList));
-      } catch {}
+    // 1. Direct Firestore cloud sync
+    saveLeaderboardEntry(entry).then(() => setSaved(true));
 
-      fetch("/api/leaderboard", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
-      })
-        .then((res) => res.json())
-        .then(() => setSaved(true))
-        .catch((err) => console.error("Failed to save score:", err));
-    }
+    // 2. Fallback server sync
+    fetch("/api/leaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    })
+      .then((res) => res.json())
+      .then(() => setSaved(true))
+      .catch((err) => console.warn("Server leaderboard sync notice:", err));
   }, [playerName, remainingTime, totalScore, difficulty]);
 
   const formatTime = (secs: number) => {
@@ -96,7 +82,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   const diffBadge = getDiffBadge();
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300 font-mono">
       <div className="bg-[#11131a] border border-[#2d2d3d] rounded-2xl w-full max-w-lg p-6 sm:p-8 text-center space-y-6 shadow-2xl relative overflow-hidden">
         {/* Amber glow backdrop */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -109,50 +95,50 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         {/* Title */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded border text-[10px] font-mono font-bold uppercase ${diffBadge.cls}`}>
+            <span className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase ${diffBadge.cls}`}>
               {diffBadge.text}
             </span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-light tracking-tight text-white uppercase font-mono">
+          <h2 className="text-xl sm:text-2xl font-light tracking-tight text-white uppercase">
             Facility Lockdown <span className="font-black text-amber-500 italic">Overridden</span>
           </h2>
-          <p className="text-xs text-[#9ca3af] font-mono">
+          <p className="text-xs text-[#9ca3af]">
             Operative {playerName} escaped in {formatTime(Math.max(0, initialTime - remainingTime))}!
           </p>
         </div>
 
         {/* Score Breakdown Table */}
-        <div className="bg-[#0a0b10] border border-[#2d2d3d] rounded-xl p-4 text-xs space-y-2 text-[#9ca3af] text-left font-mono">
+        <div className="bg-[#0a0b10] border border-[#2d2d3d] rounded-xl p-4 text-xs space-y-2 text-[#9ca3af] text-left">
           <div className="flex justify-between items-center py-1.5 border-b border-[#2d2d3d]">
             <span className="flex items-center gap-1.5 text-[#e0e0e0]">
               <ShieldCheck className="w-4 h-4 text-amber-500" /> Chamber & Puzzle XP
             </span>
-            <span className="font-mono font-bold text-white">+{baseScore} pts</span>
+            <span className="font-bold text-white">+{baseScore} pts</span>
           </div>
 
           <div className="flex justify-between items-center py-1.5 border-b border-[#2d2d3d]">
             <span className="flex items-center gap-1.5 text-[#e0e0e0]">
               <Sparkles className="w-4 h-4 text-amber-400" /> Master Escape Bonus ({multiplier}×)
             </span>
-            <span className="font-mono font-bold text-amber-400">+{escapeBonus} pts</span>
+            <span className="font-bold text-amber-400">+{escapeBonus} pts</span>
           </div>
 
           <div className="flex justify-between items-center py-1.5 border-b border-[#2d2d3d]">
             <span className="flex items-center gap-1.5 text-[#e0e0e0]">
               <Clock className="w-4 h-4 text-green-400" /> Time Bonus ({formatTime(remainingTime)} @ {multiplier}×)
             </span>
-            <span className="font-mono font-bold text-green-400">+{timeBonus} pts</span>
+            <span className="font-bold text-green-400">+{timeBonus} pts</span>
           </div>
 
           <div className="flex justify-between items-center pt-2 text-xs font-black text-white">
             <span className="text-amber-500 uppercase tracking-wider">Total Final Score:</span>
-            <span className="text-lg font-mono text-amber-400 font-black">{totalScore.toLocaleString()} PTS</span>
+            <span className="text-lg text-amber-400 font-black">{totalScore.toLocaleString()} PTS</span>
           </div>
         </div>
 
         {saved && (
-          <div className="flex items-center justify-center gap-1.5 text-xs text-green-400 font-mono font-bold">
-            <CheckCircle2 className="w-4 h-4" /> Score successfully registered on Global Leaderboard!
+          <div className="flex items-center justify-center gap-1.5 text-xs text-green-400 font-bold">
+            <CheckCircle2 className="w-4 h-4" /> Score recorded to live Firestore leaderboard!
           </div>
         )}
 
@@ -161,7 +147,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <button
             id="victory_leaderboard_btn"
             onClick={onViewLeaderboard}
-            className="flex-1 py-3 px-4 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] hover:bg-[#222533] text-[#e0e0e0] text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 font-mono"
+            className="flex-1 py-3 px-4 rounded-lg bg-[#1a1c25] border border-[#2d2d3d] hover:bg-[#222533] text-[#e0e0e0] text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-2"
           >
             <Trophy className="w-4 h-4 text-amber-500" />
             <span>Leaderboard</span>
@@ -170,7 +156,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           <button
             id="victory_play_again_btn"
             onClick={onPlayAgain}
-            className="flex-1 py-3 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] text-xs font-black uppercase tracking-[0.2em] transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.25)] font-mono"
+            className="flex-1 py-3 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] text-xs font-black uppercase tracking-[0.2em] transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
           >
             <RotateCcw className="w-4 h-4" />
             <span>Play Again</span>

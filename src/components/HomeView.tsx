@@ -1,36 +1,43 @@
 import React, { useState } from "react";
-import { Lock, Play, ShieldAlert, Sparkles, Trophy, BookOpen, KeyRound, Cpu, Eye, Binary, Zap, ShieldCheck, Flame, AlertTriangle } from "lucide-react";
+import {
+  Lock,
+  Play,
+  ShieldAlert,
+  Sparkles,
+  Trophy,
+  BookOpen,
+  KeyRound,
+  Cpu,
+  Eye,
+  Binary,
+  Zap,
+  ShieldCheck,
+  Flame,
+  AlertTriangle,
+  Bot,
+} from "lucide-react";
 import { playSuccessChime, playKeyClickSound } from "../utils/audio";
 import { DifficultyLevel } from "../types";
-import { isValidPlayerName, sanitizePlayerName } from "../utils/playerValidation";
 
 interface HomeViewProps {
   onStartGame: (name: string, difficulty: DifficultyLevel) => void;
   onOpenLeaderboard: () => void;
+  onOpenGeminiChat?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onStartGame,
   onOpenLeaderboard,
+  onOpenGeminiChat,
 }) => {
   const [nameInput, setNameInput] = useState("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel>("Medium");
-  const [nameError, setNameError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = sanitizePlayerName(nameInput);
-    if (!clean || clean.length < 2) {
-      setNameError("Codename must be at least 2 characters.");
-      return;
-    }
-    if (!isValidPlayerName(clean)) {
-      setNameError("Guest and generic placeholder names (e.g. 'Guest', 'Player', 'Agent') cannot be registered on the real-time leaderboard. Please enter your unique codename.");
-      return;
-    }
-    setNameError(null);
+    if (!nameInput.trim()) return;
     playSuccessChime();
-    onStartGame(clean, selectedDifficulty);
+    onStartGame(nameInput.trim(), selectedDifficulty);
   };
 
   const difficultyDetails: Record<DifficultyLevel, {
@@ -128,20 +135,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const currentDiff = difficultyDetails[selectedDifficulty];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-10 font-mono">
       {/* Hero Section */}
       <div className="text-center space-y-4 relative">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-[#11131a] border border-amber-500/40 text-amber-400 text-[10px] font-mono font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.15)]">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-[#11131a] border border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(245,158,11,0.15)]">
           <ShieldAlert className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
           Tactical Facility Breach Active // {currentDiff.time} Countdown // {selectedDifficulty.toUpperCase()} LEVEL
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase font-sans">
-          Escape Room <span className="text-amber-500 text-glow-amber">Control</span>
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase">
+          Escape Room <span className="text-amber-500">Control</span>
         </h1>
 
         <p className="max-w-2xl mx-auto text-[#9ca3af] text-xs sm:text-sm leading-relaxed">
-          You are locked inside the advanced computer science facility after hours. Select your security clearance level, solve word scrambles, decapitated ciphers, AI neural riddles, and matchstick blast locks before security seals all exits.
+          You are locked inside the advanced computing facility after hours. Select your security clearance level, solve word scrambles, ciphers, Gemini neural riddles, and blast locks before time runs out.
         </p>
 
         {/* Start Game Form Card */}
@@ -156,7 +163,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className="space-y-4 pt-1">
             {/* Player Name Input */}
             <div className="space-y-1.5">
-              <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-[#6b7280] font-mono">
+              <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-[#6b7280]">
                 <label htmlFor="player_codename_input">Player Name</label>
                 <span className="text-amber-500 font-bold">{currentDiff.time} Countdown</span>
               </div>
@@ -164,28 +171,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 id="player_codename_input"
                 type="text"
                 value={nameInput}
-                onChange={(e) => {
-                  setNameInput(e.target.value);
-                  if (nameError) setNameError(null);
-                }}
+                onChange={(e) => setNameInput(e.target.value)}
                 placeholder="ENTER PLAYER NAME (E.G. CIPHER_7)..."
                 maxLength={25}
                 required
-                className={`w-full bg-[#0a0b10] border rounded-lg px-4 py-3 text-white placeholder-[#374151] focus:outline-none uppercase tracking-[0.2em] font-mono text-xs ${
-                  nameError ? "border-rose-500 focus:border-rose-400" : "border-[#2d2d3d] focus:border-amber-500/50"
-                }`}
+                className="w-full bg-[#0a0b10] border border-[#2d2d3d] rounded-lg px-4 py-3 text-white placeholder-[#374151] focus:outline-none focus:border-amber-500/50 uppercase tracking-[0.2em] text-xs"
               />
-              {nameError && (
-                <p className="text-[11px] text-rose-400 font-mono flex items-center gap-1.5 pt-1">
-                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span>{nameError}</span>
-                </p>
-              )}
             </div>
 
             {/* Difficulty Level Selection */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-[#6b7280] font-mono">
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-[#6b7280]">
                 <span>Select Security Difficulty</span>
                 <span className="text-amber-400 font-bold">{currentDiff.multiplier} Multiplier</span>
               </div>
@@ -212,18 +208,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <span className="font-mono text-xs font-black uppercase flex items-center gap-1.5">
+                        <span className="text-xs font-black uppercase flex items-center gap-1.5">
                           <Icon className="w-3.5 h-3.5" />
                           {lvl}
                         </span>
-                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
                           isSelected ? conf.badgeColor : "bg-[#11131a] text-[#6b7280]"
                         }`}>
                           {conf.multiplier}
                         </span>
                       </div>
 
-                      <div className="text-[10px] font-mono flex items-center justify-between text-[#6b7280]">
+                      <div className="text-[10px] flex items-center justify-between text-[#6b7280]">
                         <span>⏱ {conf.time}</span>
                         <span>💡 {conf.hints} hints</span>
                       </div>
@@ -232,7 +228,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 })}
               </div>
 
-              <p className="text-[11px] text-[#9ca3af] font-mono bg-[#0a0b10] p-2.5 rounded border border-[#2d2d3d]/80 leading-tight">
+              <p className="text-[11px] text-[#9ca3af] bg-[#0a0b10] p-2.5 rounded border border-[#2d2d3d]/80 leading-tight">
                 <span className="text-amber-400 font-bold uppercase">{selectedDifficulty} Protocol:</span> {currentDiff.desc}
               </p>
             </div>
@@ -253,9 +249,26 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
       {/* Quick Action Navigation Buttons */}
       <div className="flex flex-wrap items-center justify-center gap-3">
+        {onOpenGeminiChat && (
+          <button
+            id="home_view_gemini_comms_btn"
+            onClick={() => {
+              playKeyClickSound();
+              onOpenGeminiChat();
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#11131a] border border-amber-500/40 hover:border-amber-400 text-amber-400 hover:text-amber-300 text-xs font-semibold uppercase tracking-wider transition shadow-md"
+          >
+            <Bot className="w-4 h-4" />
+            <span>Gemini AI Comms</span>
+          </button>
+        )}
+
         <button
           id="home_view_leaderboard_btn"
-          onClick={onOpenLeaderboard}
+          onClick={() => {
+            playKeyClickSound();
+            onOpenLeaderboard();
+          }}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#11131a] border border-[#2d2d3d] hover:border-amber-500/40 text-[#9ca3af] hover:text-white text-xs font-semibold uppercase tracking-wider transition"
         >
           <Trophy className="w-4 h-4 text-amber-400" />
@@ -266,11 +279,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Room Blueprints Grid */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 font-mono">
+          <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
             <Lock className="w-4 h-4 text-amber-500" />
             Facility Blueprint & Security Chambers
           </h2>
-          <span className="text-[10px] text-amber-500/80 font-mono uppercase tracking-widest">
+          <span className="text-[10px] text-amber-500/80 uppercase tracking-widest">
             5 Primary + 3 Bonus Vaults
           </span>
         </div>
@@ -285,7 +298,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               >
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#0a0b10] border border-[#2d2d3d] text-amber-500">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#0a0b10] border border-[#2d2d3d] text-amber-500">
                       Chamber 0{c.num}
                     </span>
                     <div className="p-1.5 rounded bg-[#1a1c25] border border-[#2d2d3d] text-amber-400">
@@ -296,7 +309,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <h3 className="font-bold text-white text-xs uppercase tracking-tight group-hover:text-amber-400 transition">
                       {c.title}
                     </h3>
-                    <p className="text-[11px] font-medium text-amber-500/90 font-mono">{c.puzzle}</p>
+                    <p className="text-[11px] font-medium text-amber-500/90">{c.puzzle}</p>
                   </div>
                   <p className="text-[10px] text-[#9ca3af] leading-normal">{c.desc}</p>
                 </div>
@@ -309,7 +322,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* Game Rules & Scoring Rules */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl p-5 space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 font-mono text-amber-500">
+          <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-amber-500">
             <BookOpen className="w-4 h-4 text-amber-500" />
             Operative Field Guidelines
           </h3>
@@ -324,32 +337,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </li>
             <li className="flex items-start gap-2">
               <span className="text-amber-500 font-bold">•</span>
-              <span><strong>Bonus Vault Games:</strong> Complete 4x4 Sudoku, Chroma Neural Sequence, and Spot Difference for +350 bonus score.</span>
+              <span><strong>Gemini AI Comms:</strong> Consult Sentry-9, Cipher-X, Dr. Alan, or Blitz in the multi-turn tactical comms terminal for puzzle hints.</span>
             </li>
           </ul>
         </div>
 
         <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl p-5 space-y-3">
-          <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2 font-mono text-amber-500">
+          <h3 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-amber-500">
             <Trophy className="w-4 h-4 text-amber-500" />
-            Scoring Matrix & Tier Multipliers
+            Scoring Matrix & Multipliers
           </h3>
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="p-2.5 rounded bg-[#0a0b10] border border-[#2d2d3d]">
               <div className="text-[10px] uppercase tracking-widest text-[#6b7280]">Easy Tier</div>
-              <div className="text-emerald-400 font-mono font-bold text-sm">1.0× BASE XP</div>
+              <div className="text-emerald-400 font-bold text-sm">1.0× BASE XP</div>
             </div>
             <div className="p-2.5 rounded bg-[#0a0b10] border border-[#2d2d3d]">
               <div className="text-[10px] uppercase tracking-widest text-[#6b7280]">Medium Tier</div>
-              <div className="text-amber-400 font-mono font-bold text-sm">1.5× BONUS XP</div>
+              <div className="text-amber-400 font-bold text-sm">1.5× BONUS XP</div>
             </div>
             <div className="p-2.5 rounded bg-[#0a0b10] border border-[#2d2d3d]">
               <div className="text-[10px] uppercase tracking-widest text-[#6b7280]">Hard Tier</div>
-              <div className="text-rose-400 font-mono font-bold text-sm">2.0× DOUBLE XP</div>
+              <div className="text-rose-400 font-bold text-sm">2.0× DOUBLE XP</div>
             </div>
             <div className="p-2.5 rounded bg-[#0a0b10] border border-[#2d2d3d]">
               <div className="text-[10px] uppercase tracking-widest text-[#6b7280]">Master Escape</div>
-              <div className="text-white font-mono font-bold text-sm">+500 + 2×TIME</div>
+              <div className="text-white font-bold text-sm">+500 + 2×TIME</div>
             </div>
           </div>
         </div>

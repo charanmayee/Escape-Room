@@ -1,7 +1,25 @@
 import React from "react";
-import { Lock, Unlock, Clock, Award, Compass, Search, Lightbulb, ShieldAlert, Sparkles, ShieldCheck, Flame, AlertTriangle, Map, HelpCircle } from "lucide-react";
+import {
+  Lock,
+  Unlock,
+  Clock,
+  Award,
+  Compass,
+  Search,
+  Lightbulb,
+  ShieldAlert,
+  Sparkles,
+  ShieldCheck,
+  Flame,
+  AlertTriangle,
+  Map,
+  HelpCircle,
+  Bot,
+  MessageSquare,
+} from "lucide-react";
 import { ClueItem, DifficultyLevel } from "../types";
 import { FacilityFloorPlan } from "./FacilityFloorPlan";
+import { playKeyClickSound } from "../utils/audio";
 
 interface SidebarProps {
   playerName: string;
@@ -16,6 +34,7 @@ interface SidebarProps {
   onRequestHint: () => void;
   onSelectRoom: (room: number) => void;
   onOpenBonusModal: () => void;
+  onOpenGeminiChat?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,6 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRequestHint,
   onSelectRoom,
   onOpenBonusModal,
+  onOpenGeminiChat,
 }) => {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -55,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const DiffIcon = diffInfo.icon;
 
   return (
-    <aside id="game_sidebar" className="w-full lg:w-80 bg-[#11131a] border-b lg:border-b-0 lg:border-r border-[#2d2d3d] p-3.5 sm:p-4 flex flex-col gap-4 text-[#e0e0e0] shrink-0">
+    <aside id="game_sidebar" className="w-full lg:w-80 bg-[#11131a] border-b lg:border-b-0 lg:border-r border-[#2d2d3d] p-3.5 sm:p-4 flex flex-col gap-4 text-[#e0e0e0] shrink-0 font-mono">
       {/* Tactical Facility Blueprint Floor Plan */}
       <FacilityFloorPlan
         currentRoom={currentRoom}
@@ -64,13 +84,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         onSelectRoom={onSelectRoom}
       />
 
+      {/* Gemini AI Tactical Assistant Banner */}
+      {onOpenGeminiChat && (
+        <button
+          id="sidebar_gemini_comms_btn"
+          onClick={() => {
+            playKeyClickSound();
+            onOpenGeminiChat();
+          }}
+          className="w-full p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-between text-xs font-bold transition shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <Bot className="w-4 h-4 text-amber-400 animate-pulse" />
+            <div className="text-left">
+              <p className="text-white font-bold leading-none">Gemini Tactical Comms</p>
+              <p className="text-[9px] text-[#9ca3af] mt-0.5">Ask Sentry-9 or Cipher-X for hints</p>
+            </div>
+          </div>
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-[#0a0b10] font-black uppercase">
+            OPEN
+          </span>
+        </button>
+      )}
+
       {/* Player Assets */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-[10px] uppercase tracking-widest text-[#6b7280] font-bold">
             Player Assets
           </h3>
-          <span className="text-[10px] text-amber-500/80 font-mono">
+          <span className="text-[10px] text-amber-500/80">
             {foundClues.length} Collected
           </span>
         </div>
@@ -97,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   title={`${clue.name}: ${clue.text}`}
                 >
                   <span>{clue.icon}</span>
-                  <span className="absolute bottom-0.5 right-1 text-[8px] font-mono text-amber-400">
+                  <span className="absolute bottom-0.5 right-1 text-[8px] text-amber-400">
                     R{clue.roomNumber}
                   </span>
                 </div>
@@ -121,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="font-semibold text-amber-400 flex items-center gap-1.5 text-[11px]">
                   <span>{clue.icon}</span>
                   <span>{clue.name}</span>
-                  <span className="text-[9px] text-[#6b7280] ml-auto font-mono">Room {clue.roomNumber}</span>
+                  <span className="text-[9px] text-[#6b7280] ml-auto">Room {clue.roomNumber}</span>
                 </div>
                 <p className="text-[10px] text-[#9ca3af] mt-0.5 leading-tight">{clue.text}</p>
               </div>
@@ -137,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-[10px] uppercase tracking-widest text-amber-500 font-bold">
               Available Hints
             </span>
-            <span className="text-xs font-mono font-bold text-white">
+            <span className="text-xs font-bold text-white">
               {hintsRemaining}/{maxHints}
             </span>
           </div>
@@ -158,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id="sidebar_request_hint_btn"
             onClick={onRequestHint}
             disabled={hintsRemaining <= 0}
-            className={`w-full mt-2 py-1.5 px-2 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition border ${
+            className={`w-full mt-2 py-1.5 px-2 rounded text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition border ${
               hintsRemaining > 0
                 ? "bg-[#11131a] border-amber-500/40 hover:border-amber-500 text-amber-400 hover:bg-[#1f2230]"
                 : "bg-[#0d0f14] border-[#2d2d3d] text-[#6b7280] cursor-not-allowed"
