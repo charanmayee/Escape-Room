@@ -36,10 +36,20 @@ export const Room5Matchstick: React.FC<Room5Props> = ({
   const [showSearch, setShowSearch] = useState(false);
   const [escapeError, setEscapeError] = useState(false);
 
+  const normalizeEquation = (str: string): string => {
+    return str
+      .trim()
+      .replace(/[\u2212\u2013\u2014]/g, "-") // Unicode minus, en-dash, em-dash
+      .replace(/\s+/g, "");
+  };
+
   const handleMatchCheck = (val: string) => {
     setMatchInput(val);
-    const clean = val.trim().replace(/\s+/g, " ");
-    if (MATCHSTICK_SOLUTIONS.some((s) => s === clean || s.replace(/\s/g, "") === clean.replace(/\s/g, ""))) {
+    const cleanNorm = normalizeEquation(val);
+    if (!cleanNorm) return;
+
+    const matches = MATCHSTICK_SOLUTIONS.some((s) => normalizeEquation(s) === cleanNorm);
+    if (matches) {
       if (!matchSolved) {
         playSuccessChime();
         setMatchSolved(true);
@@ -208,6 +218,12 @@ export const Room5Matchstick: React.FC<Room5Props> = ({
               type="text"
               value={matchInput}
               onChange={(e) => handleMatchCheck(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleMatchCheck(matchInput);
+                  if (matchSolved && seqSolved) handleTriggerEscape();
+                }
+              }}
               disabled={matchSolved}
               placeholder="Enter balanced equation (e.g. X + Y = Z)..."
               className={`w-full px-4 py-2.5 rounded text-xs font-mono font-bold tracking-[0.15em] uppercase focus:outline-none border ${
@@ -276,6 +292,12 @@ export const Room5Matchstick: React.FC<Room5Props> = ({
               type="text"
               value={seqInput}
               onChange={(e) => handleSeqCheck(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleSeqCheck(seqInput);
+                  if (matchSolved && seqSolved) handleTriggerEscape();
+                }
+              }}
               disabled={seqSolved}
               placeholder="Enter missing sequence number..."
               className={`w-full px-4 py-2.5 rounded text-xs font-mono font-bold tracking-[0.2em] uppercase focus:outline-none border ${

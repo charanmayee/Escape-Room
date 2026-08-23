@@ -250,25 +250,37 @@ export const Room2Decapitated: React.FC<Room2Props> = ({
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleUnlockDoor();
+          }}
+          className="flex flex-col sm:flex-row gap-3 pt-2"
+        >
           <input
             id="room2_key_input"
             type="text"
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleUnlockDoor();
+              }
+            }}
             placeholder="ENTER VAULT DECRYPTION KEY"
             className="flex-1 bg-[#0a0b10] border border-[#2d2d3d] rounded-lg px-4 py-3 text-sm font-mono font-bold tracking-[0.25em] text-center text-white placeholder-[#374151] focus:outline-none focus:border-amber-500/50 uppercase"
           />
 
           <button
             id="room2_door_unlock_btn"
-            onClick={handleUnlockDoor}
+            type="submit"
             className="px-8 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
           >
             <span>Unlock Room 3 (AI Core)</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-        </div>
+        </form>
 
         {doorError && (
           <p className="text-xs text-rose-400 font-bold font-mono text-center">

@@ -16,6 +16,7 @@ const REBUS_DATA = [
     visual: ["🚲 cycle", "🚲 cycle", "🚲 cycle"],
     description: "Three repeating cycles vertically aligned.",
     answer: "TRICYCLE",
+    aliases: ["TRICYCLE", "A TRICYCLE", "TRI CYCLE", "TRI-CYCLE", "3 CYCLE", "THREE CYCLES"],
     digit: "4",
     hint: "Prefix for three is Tri-. A vehicle with 3 wheels.",
   },
@@ -25,6 +26,7 @@ const REBUS_DATA = [
     visual: ["  MAN  ", "———————", " BOARD "],
     description: "The word MAN positioned directly above the word BOARD.",
     answer: "MAN OVERBOARD",
+    aliases: ["MAN OVERBOARD", "MAN OVER BOARD", "A MAN OVERBOARD", "MAN-OVERBOARD"],
     digit: "8",
     hint: "Spatial placement: MAN is OVER BOARD. A mariner warning cry.",
   },
@@ -34,6 +36,7 @@ const REBUS_DATA = [
     visual: ["STAND", "  I  "],
     description: "The letter I situated beneath the word STAND.",
     answer: "I UNDERSTAND",
+    aliases: ["I UNDERSTAND", "UNDERSTAND", "I UNDER STAND", "I-UNDERSTAND"],
     digit: "2",
     hint: "The letter 'I' is located UNDER the word 'STAND'.",
   },
@@ -43,6 +46,7 @@ const REBUS_DATA = [
     visual: ["M C E", "M C E", "M C E"],
     description: "Three mice written without the letter 'i' (no eyes).",
     answer: "THREE BLIND MICE",
+    aliases: ["THREE BLIND MICE", "3 BLIND MICE", "THREE BLIND MOUSE", "3 BLIND MICE", "BLIND MICE"],
     digit: "7",
     hint: "Three mice that have no 'eyes' (letter i). Popular nursery song.",
   },
@@ -76,10 +80,16 @@ export const Room4Rebus: React.FC<Room4Props> = ({
     if (!target) return false;
 
     const normalizedInput = normalizeAnswer(val);
-    const normalizedExpected = normalizeAnswer(target.answer);
+    if (!normalizedInput) return false;
 
-    // Strictly require complete, full case-insensitive string match
-    return normalizedInput.length > 0 && normalizedInput === normalizedExpected;
+    const normalizedExpected = normalizeAnswer(target.answer);
+    if (normalizedInput === normalizedExpected) return true;
+
+    if (target.aliases && target.aliases.length > 0) {
+      return target.aliases.some((alias) => normalizeAnswer(alias) === normalizedInput);
+    }
+
+    return false;
   };
 
   const handleCardInput = (id: number, val: string) => {

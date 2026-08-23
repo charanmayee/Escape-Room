@@ -4,29 +4,18 @@ import { playSuccessChime, playErrorBuzzer, playKeyClickSound } from "../utils/a
 
 interface BonusChamberModalProps {
   onClose: () => void;
-  onAwardBonusPoints: (points: number) => void;
+  onAwardBonusPoints: (bonusId: string, points: number) => void;
+  completedBonusIds?: string[];
 }
 
 export const BonusChamberModal: React.FC<BonusChamberModalProps> = ({
   onClose,
   onAwardBonusPoints,
+  completedBonusIds = [],
 }) => {
   const [activeTab, setActiveTab] = useState<"sudoku" | "color" | "spot">("sudoku");
 
   // --- 1. 4x4 SUDOKU STATE ---
-  // Initial puzzle with blanks as 0
-  const initialSudoku = [
-    [1, 0, 3, 0],
-    [0, 0, 0, 2],
-    [3, 0, 0, 0],
-    [0, 4, 0, 1],
-  ];
-  const sudokuSolution = [
-    [1, 2, 3, 4],
-    [4, 3, 1, 2],
-    [3, 1, 2, 4],
-    [2, 4, 4, 1], // standard valid 4x4
-  ];
   // Better verified 4x4 grid:
   // Row 0: 1 2 3 4
   // Row 1: 4 3 2 1
@@ -45,11 +34,13 @@ export const BonusChamberModal: React.FC<BonusChamberModalProps> = ({
     [0, 4, 0, 2],
   ];
 
-  const [sudokuGrid, setSudokuGrid] = useState<number[][]>(fixedPuzzle);
-  const [sudokuSolved, setSudokuSolved] = useState(false);
+  const isSudokuInitiallySolved = completedBonusIds.includes("sudoku");
+  const [sudokuGrid, setSudokuGrid] = useState<number[][]>(isSudokuInitiallySolved ? fixedSolution : fixedPuzzle);
+  const [sudokuSolved, setSudokuSolved] = useState(isSudokuInitiallySolved);
   const [sudokuError, setSudokuError] = useState(false);
 
   const handleSudokuCell = (r: number, c: number, val: string) => {
+    if (sudokuSolved) return;
     playKeyClickSound();
     const num = parseInt(val, 10);
     if (isNaN(num) || num < 1 || num > 4) {
@@ -77,18 +68,22 @@ export const BonusChamberModal: React.FC<BonusChamberModalProps> = ({
     if (allFilled && correct) {
       playSuccessChime();
       setSudokuSolved(true);
-      onAwardBonusPoints(150);
+      onAwardBonusPoints("sudoku", 150);
     }
   };
 
   // --- 2. COLOR SEQUENCE MEMORY STATE ---
+  const isColorInitiallyWon = completedBonusIds.includes("color");
   const COLORS = ["cyan", "amber", "purple", "emerald"] as const;
   const [sequence, setSequence] = useState<string[]>([]);
   const [playerSequence, setPlayerSequence] = useState<string[]>([]);
-  const [colorStatus, setColorStatus] = useState<"idle" | "showing" | "playing" | "won" | "lost">("idle");
+  const [colorStatus, setColorStatus] = useState<"idle" | "showing" | "playing" | "won" | "lost">(
+    isColorInitiallyWon ? "won" : "idle"
+  );
   const [activeFlash, setActiveFlash] = useState<string | null>(null);
 
   const startColorGame = () => {
+    if (completedBonusIds.includes("color")) return;
     const newSeq = [
       COLORS[Math.floor(Math.random() * 4)],
       COLORS[Math.floor(Math.random() * 4)],
@@ -129,25 +124,27 @@ export const BonusChamberModal: React.FC<BonusChamberModalProps> = ({
     if (nextPlayerSeq.length === sequence.length) {
       playSuccessChime();
       setColorStatus("won");
-      onAwardBonusPoints(100);
+      onAwardBonusPoints("color", 100);
     }
   };
 
   // --- 3. SPOT THE DIFFERENCE STATE ---
-  const [foundSpots, setFoundSpots] = useState<number[]>([]);
+  const isSpotInitiallyWon = completedBonusIds.includes("spot");
   const spotLocations = [
     { id: 1, name: "Missing Coffee Mug Steam", x: "18%", y: "30%" },
     { id: 2, name: "Reversed Clock Hands", x: "82%", y: "20%" },
     { id: 3, name: "Green LED turned Red", x: "50%", y: "75%" },
   ];
+  const [foundSpots, setFoundSpots] = useState<number[]>(isSpotInitiallyWon ? [1, 2, 3] : []);
 
   const handleSpotClick = (id: number) => {
+    if (isSpotInitiallyWon) return;
     if (!foundSpots.includes(id)) {
       playSuccessChime();
       const next = [...foundSpots, id];
       setFoundSpots(next);
       if (next.length === spotLocations.length) {
-        onAwardBonusPoints(100);
+        onAwardBonusPoints("spot", 100);
       }
     }
   };

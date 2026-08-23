@@ -239,7 +239,7 @@ export const Room3AIRiddle: React.FC<Room3Props> = (props: Room3Props) => {
                   <Sparkles className="w-3.5 h-3.5" /> Neural Subject: {riddle.theme}
                 </span>
                 <span className="px-2 py-0.5 rounded bg-[#0a0b10] border border-[#2d2d3d] text-white text-[10px] uppercase font-bold">
-                  {difficulty} Matrix
+                  {currentDiff} Matrix
                 </span>
               </div>
 

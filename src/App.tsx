@@ -36,6 +36,7 @@ export function App() {
   const [isVictory, setIsVictory] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [discoveredClues, setDiscoveredClues] = useState<ClueItem[]>([]);
+  const [completedBonusIds, setCompletedBonusIds] = useState<string[]>([]);
   
   // Sound Settings State Manager
   const [soundSettings, setSoundSettings] = useState<SoundSettings>(getSoundSettings());
@@ -90,6 +91,7 @@ export function App() {
     setIsVictory(false);
     setIsGameOver(false);
     setDiscoveredClues([]);
+    setCompletedBonusIds([]);
     setShowLeaderboard(false);
   };
 
@@ -115,7 +117,9 @@ export function App() {
     });
   };
 
-  const handleAwardBonusPoints = (pts: number) => {
+  const handleAwardBonusPoints = (bonusId: string, pts: number) => {
+    if (completedBonusIds.includes(bonusId)) return;
+    setCompletedBonusIds((prev) => [...prev, bonusId]);
     const multiplier = difficulty === "Hard" ? 2.0 : difficulty === "Medium" ? 1.5 : 1.0;
     setScore((prev) => prev + Math.round(pts * multiplier));
   };
@@ -163,6 +167,7 @@ export function App() {
     setScore(0);
     setRemainingTime(initialTime);
     setDiscoveredClues([]);
+    setCompletedBonusIds([]);
   };
 
   return (
@@ -378,6 +383,7 @@ export function App() {
         <BonusChamberModal
           onClose={() => setShowBonusModal(false)}
           onAwardBonusPoints={handleAwardBonusPoints}
+          completedBonusIds={completedBonusIds}
         />
       )}
 

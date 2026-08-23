@@ -278,12 +278,24 @@ export const Room1WordScramble: React.FC<Room1Props> = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleUnlockDoor();
+          }}
+          className="flex flex-col sm:flex-row gap-3 pt-2"
+        >
           <input
             id="room1_door_input"
             type="text"
             value={doorCodeInput}
             onChange={(e) => setDoorCodeInput(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleUnlockDoor();
+              }
+            }}
             maxLength={5}
             placeholder="ENTER 5-LETTER OVERRIDE KEY ( _ _ _ _ _ )"
             className="flex-1 bg-[#0a0b10] border border-[#2d2d3d] rounded-lg px-4 py-3 text-sm font-mono font-bold tracking-[0.25em] text-center text-white placeholder-[#374151] focus:outline-none focus:border-amber-500/50 uppercase"
@@ -291,13 +303,13 @@ export const Room1WordScramble: React.FC<Room1Props> = ({
 
           <button
             id="room1_door_unlock_btn"
-            onClick={handleUnlockDoor}
+            type="submit"
             className="px-8 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
           >
             <span>Unlock Room 2 Door</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-        </div>
+        </form>
 
         {doorError && (
           <p className="text-xs text-rose-400 font-bold font-mono text-center">

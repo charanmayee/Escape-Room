@@ -143,10 +143,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <div className="space-y-4 pt-1">
-            {/* Codename Input */}
+            {/* Player Name Input */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-[10px] uppercase tracking-widest text-[#6b7280] font-mono">
-                <label htmlFor="player_codename_input">Operative Codename</label>
+                <label htmlFor="player_codename_input">Player Name</label>
                 <span className="text-amber-500 font-bold">{currentDiff.time} Countdown</span>
               </div>
               <input
@@ -154,7 +154,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 type="text"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="ENTER CODENAME (E.G. CIPHER_7)..."
+                placeholder="ENTER PLAYER NAME (E.G. CIPHER_7)..."
                 maxLength={25}
                 required
                 className="w-full bg-[#0a0b10] border border-[#2d2d3d] rounded-lg px-4 py-3 text-white placeholder-[#374151] focus:outline-none focus:border-amber-500/50 uppercase tracking-[0.2em] font-mono text-xs"
@@ -223,7 +223,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-[0.25em] rounded-lg transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
             >
               <Play className="w-4 h-4 fill-[#0a0b10]" />
-              <span>Initialize {selectedDifficulty.toUpperCase()} Mission</span>
+              <span>Start Game</span>
             </button>
           </div>
         </form>
