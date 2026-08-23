@@ -185,120 +185,203 @@ app.post("/api/leaderboard", (req, res) => {
   }
 });
 
-// API: Gemini Dynamic Riddle Generator
+// Curated high-variety offline fallback riddles
+const FALLBACK_RIDDLES = [
+  // Easy
+  {
+    difficulty: "Easy",
+    theme: "Technology",
+    question: "I have keys but no locks. I have a space but no room. You can enter, but you cannot go outside. What am I?",
+    answer: "keyboard",
+    hint: "You use it every day to type text, commands, and code.",
+    explanation: "A computer keyboard has letter keys, space bar, and enter key.",
+  },
+  {
+    difficulty: "Easy",
+    theme: "Student Life",
+    question: "I have a spine, but no bones. I have leaves, but no branches. I tell stories and teach algorithms without speaking. What am I?",
+    answer: "book",
+    hint: "You borrow hundreds of me from the college library.",
+    explanation: "A book has a spine and pages (leaves).",
+  },
+  {
+    difficulty: "Easy",
+    theme: "Web Technology",
+    question: "I am baked in code, stored in your browser, and remember your session preferences. What am I?",
+    answer: "cookie",
+    hint: "A sweet treat name used for HTTP client storage.",
+    explanation: "HTTP cookies store stateful user session data in browsers.",
+  },
+  {
+    difficulty: "Easy",
+    theme: "Hardware",
+    question: "I have no hands or feet, but I click and point where you direct on the screen. What am I?",
+    answer: "mouse",
+    hint: "A rodent-named computer peripheral.",
+    explanation: "A computer mouse navigates the cursor on displays.",
+  },
+  // Medium
+  {
+    difficulty: "Medium",
+    theme: "Artificial Intelligence",
+    question: "I speak without a mouth and hear without ears. In terminal scripts, I print back whatever you send me. What am I?",
+    answer: "echo",
+    hint: "A shell command used in Bash/CLI to print strings.",
+    explanation: "The 'echo' command outputs arguments to stdout.",
+  },
+  {
+    difficulty: "Medium",
+    theme: "Network Security",
+    question: "I stand as a fiery wall between your network and the outside world, filtering incoming and outgoing packets. What am I?",
+    answer: "firewall",
+    hint: "A digital security barrier protecting against unauthorized access.",
+    explanation: "A firewall inspects and monitors network traffic based on security rules.",
+  },
+  {
+    difficulty: "Medium",
+    theme: "Cloud Computing",
+    question: "I float without rain, store petabytes without hard ground, and serve servers from anywhere on Earth. What am I?",
+    answer: "cloud",
+    hint: "Remote compute and data storage infrastructure.",
+    explanation: "The cloud refers to distributed servers and storage accessed via internet.",
+  },
+  {
+    difficulty: "Medium",
+    theme: "Data Structures",
+    question: "Last one in is first one out. I hold function calls and recursive traces until they pop off. What am I?",
+    answer: "stack",
+    hint: "LIFO data structure.",
+    explanation: "A stack operates on Last-In, First-Out order.",
+  },
+  // Hard
+  {
+    difficulty: "Hard",
+    theme: "Cryptography",
+    question: "I am a secret wrapped in math. Shift me by 3 and Caesar smiles; hash me with SHA and I can never return. What am I?",
+    answer: "cipher",
+    hint: "An encryption algorithm used to protect data.",
+    explanation: "A cipher encrypts plaintext into protected ciphertext.",
+  },
+  {
+    difficulty: "Hard",
+    theme: "Algorithms",
+    question: "To understand me, you must first understand me. I call upon myself until a base condition releases the call stack. What am I?",
+    answer: "recursion",
+    hint: "A programming technique where a function calls itself.",
+    explanation: "Recursion solves problems by dividing into smaller self-referential subproblems.",
+  },
+  {
+    difficulty: "Hard",
+    theme: "Computer Architecture",
+    question: "I am lightning fast and live right next to the CPU cores. When I miss, main memory must pay the latency penalty. What am I?",
+    answer: "cache",
+    hint: "High-speed SRAM memory layer (L1, L2, L3).",
+    explanation: "CPU cache stores frequently accessed data for instant retrieval.",
+  },
+  {
+    difficulty: "Hard",
+    theme: "Operating Systems",
+    question: "I am the heart of the operating system. I manage memory, CPU scheduling, and hardware drivers with supreme privilege in ring 0. What am I?",
+    answer: "kernel",
+    hint: "The fundamental core software module of Linux or Unix.",
+    explanation: "The kernel manages system resources and hardware interaction.",
+  },
+];
+
+function getRandomFallbackRiddle(diff: string) {
+  const normalized = (diff || "Medium").toLowerCase();
+  const matching = FALLBACK_RIDDLES.filter((r) => r.difficulty.toLowerCase() === normalized);
+  const pool = matching.length > 0 ? matching : FALLBACK_RIDDLES;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// API: Gemini Dynamic Riddle Generator with automatic retry and model fallback
 app.post("/api/gemini/riddle", async (req, res) => {
   const { difficulty = "Medium", theme = "Technology and Artificial Intelligence" } = req.body;
 
-  // Curated fallbacks
-  const fallbacks = [
-    {
-      difficulty: "Easy",
-      theme: "Technology",
-      question: "I have keys but no locks. I have a space but no room. You can enter, but you cannot go outside. What am I?",
-      answer: "keyboard",
-      hint: "You use it to write code and type messages.",
-      explanation: "A computer keyboard contains letters, an enter key, and a space bar.",
-    },
-    {
-      difficulty: "Medium",
-      theme: "Artificial Intelligence",
-      question: "I speak without a mouth and hear without ears. In programming, I repeat whatever you tell me into the terminal. What am I?",
-      answer: "echo",
-      hint: "A shell command used in Bash to print output.",
-      explanation: "The 'echo' command prints passed arguments to standard output.",
-    },
-    {
-      difficulty: "Hard",
-      theme: "Cryptography",
-      question: "I am a secret wrapped in math. Shift me by 3 and Caesar smiles; hash me with SHA and I can never return. What am I?",
-      answer: "cipher",
-      hint: "An encryption algorithm used to protect data.",
-      explanation: "A cipher encrypts plaintext into protected ciphertext.",
-    },
-    {
-      difficulty: "Easy",
-      theme: "Student Life",
-      question: "I have a spine, but no bones. I have leaves, but no branches. I tell stories without speaking. What am I?",
-      answer: "book",
-      hint: "You borrow hundreds of me from the college library.",
-      explanation: "A book has a spine and pages (leaves), holding knowledge.",
-    },
-  ];
-
-  try {
-    const ai = getGeminiClient();
-    if (!ai) {
-      const match = fallbacks.find((f) => f.difficulty.toLowerCase() === difficulty.toLowerCase()) || fallbacks[1];
-      return res.json({ riddle: match, source: "fallback" });
-    }
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
-      contents: `Generate one clever escape room riddle.
+  const ai = getGeminiClient();
+  if (ai) {
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite"];
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: `Generate one clever escape room riddle.
 Theme: ${theme}
 Difficulty: ${difficulty}
 The riddle should have a single lowercase word or short phrase answer (1-2 words).
 Return strictly JSON adhering to the schema.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            question: { type: Type.STRING, description: "The riddle question" },
-            answer: { type: Type.STRING, description: "Single word or short phrase answer in lowercase" },
-            hint: { type: Type.STRING, description: "A clever clue that guides without giving it away" },
-            explanation: { type: Type.STRING, description: "Brief explanation of why the answer is correct" },
-            difficulty: { type: Type.STRING, description: "Easy, Medium, or Hard" },
-            theme: { type: Type.STRING, description: "Theme" },
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                question: { type: Type.STRING, description: "The riddle question" },
+                answer: { type: Type.STRING, description: "Single word or short phrase answer in lowercase" },
+                hint: { type: Type.STRING, description: "A clever clue that guides without giving it away" },
+                explanation: { type: Type.STRING, description: "Brief explanation of why the answer is correct" },
+                difficulty: { type: Type.STRING, description: "Easy, Medium, or Hard" },
+                theme: { type: Type.STRING, description: "Theme" },
+              },
+              required: ["question", "answer", "hint", "explanation"],
+            },
           },
-          required: ["question", "answer", "hint", "explanation"],
-        },
-      },
-    });
+        });
 
-    const parsed = JSON.parse(response.text?.trim() || "{}");
-    if (parsed.question && parsed.answer) {
-      return res.json({
-        riddle: {
-          question: parsed.question,
-          answer: parsed.answer.toLowerCase().trim(),
-          hint: parsed.hint || "Think about computer science concepts.",
-          explanation: parsed.explanation || "Correct answer deduced by riddle clues.",
-          difficulty: parsed.difficulty || difficulty,
-          theme: parsed.theme || theme,
-        },
-        source: "gemini",
-      });
+        const parsed = JSON.parse(response.text?.trim() || "{}");
+        if (parsed.question && parsed.answer) {
+          return res.json({
+            riddle: {
+              question: parsed.question,
+              answer: parsed.answer.toLowerCase().trim(),
+              hint: parsed.hint || "Think about computer science concepts.",
+              explanation: parsed.explanation || "Correct answer deduced by riddle clues.",
+              difficulty: parsed.difficulty || difficulty,
+              theme: parsed.theme || theme,
+            },
+            source: "gemini",
+          });
+        }
+      } catch (err: any) {
+        // Log clean notice and try fallback model or offline backup
+        const errMsg = err?.message || String(err);
+        console.warn(`Gemini (${modelName}) unavailable (${errMsg.slice(0, 80)}...), attempting fallback.`);
+      }
     }
-  } catch (err) {
-    console.error("Gemini riddle error:", err);
   }
 
-  const match = fallbacks.find((f) => f.difficulty.toLowerCase() === difficulty.toLowerCase()) || fallbacks[1];
-  return res.json({ riddle: match, source: "fallback" });
+  const fallback = getRandomFallbackRiddle(difficulty);
+  return res.json({ riddle: fallback, source: "fallback" });
 });
 
-// API: Gemini Contextual Hint
+// API: Gemini Contextual Hint with resilient fallback
 app.post("/api/gemini/hint", async (req, res) => {
   const { room, puzzleTitle, puzzleDetail } = req.body;
-  try {
-    const ai = getGeminiClient();
-    if (ai) {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: `You are the master AI of an escape room game.
+  const ai = getGeminiClient();
+  if (ai) {
+    const modelsToTry = ["gemini-3.7-flash", "gemini-3.1-flash-lite"];
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: `You are the master AI of an escape room game.
 The player is stuck in: ${room}
 Puzzle: ${puzzleTitle}
 Details: ${puzzleDetail}
 
 Provide a single, witty, helpful one-sentence clue that guides the player toward the answer without directly spoiling the password or word. Keep it under 25 words.`,
-      });
-      return res.json({ hint: response.text?.trim() });
+        });
+        const hintText = response.text?.trim();
+        if (hintText) {
+          return res.json({ hint: hintText });
+        }
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        console.warn(`Gemini hint (${modelName}) transient status (${errMsg.slice(0, 60)}...).`);
+      }
     }
-  } catch (err) {
-    console.error("Gemini hint error:", err);
   }
-  return res.json({ hint: "Look carefully at the patterns, first letters, or mathematical sequences!" });
+  return res.json({ hint: "Look carefully at the patterns, first letters, or mathematical sequences in this chamber!" });
 });
 
 // API: Secure Puzzle Verification (Keep validation server-side without leaking answers)
