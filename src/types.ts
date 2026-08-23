@@ -31,3 +31,12 @@ export interface PythonFile {
   path: string;
   content: string;
 }
+
+export interface SoundSettings {
+  masterMuted: boolean;
+  sfxMuted: boolean;
+  bgmMuted: boolean;
+  masterVolume: number; // 0.0 to 1.0
+  sfxVolume: number;    // 0.0 to 1.0
+  bgmVolume: number;    // 0.0 to 1.0
+}

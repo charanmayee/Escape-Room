@@ -1,7 +1,26 @@
-import React from "react";
-import { Lock, Volume2, VolumeX, Trophy, Flame, RotateCcw, ShieldCheck, AlertTriangle } from "lucide-react";
-import { isSoundEnabled, setSoundEnabled, playKeyClickSound } from "../utils/audio";
-import { DifficultyLevel } from "../types";
+import React, { useState } from "react";
+import {
+  Lock,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Music,
+  Sliders,
+  Trophy,
+  Flame,
+  RotateCcw,
+  ShieldCheck,
+  AlertTriangle
+} from "lucide-react";
+import { SoundSettings, DifficultyLevel } from "../types";
+import {
+  isSoundEnabled,
+  isBgmEnabled,
+  toggleMasterSound,
+  toggleBgm,
+  playKeyClickSound,
+  initAudioContext
+} from "../utils/audio";
 
 interface NavbarProps {
   playerName: string;
@@ -13,8 +32,12 @@ interface NavbarProps {
   onOpenLeaderboard: () => void;
   onOpenBonusModal: () => void;
   onResetGame: () => void;
-  soundOn: boolean;
-  setSoundOn: (val: boolean) => void;
+  soundSettings: SoundSettings;
+  onOpenSoundSettings: () => void;
+  onUpdateSoundSettings: (settings: SoundSettings) => void;
+  // Deprecated compatibility props
+  soundOn?: boolean;
+  setSoundOn?: (val: boolean) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -27,8 +50,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLeaderboard,
   onOpenBonusModal,
   onResetGame,
-  soundOn,
-  setSoundOn,
+  soundSettings,
+  onOpenSoundSettings,
+  onUpdateSoundSettings,
 }) => {
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -36,11 +60,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const handleToggleSound = () => {
-    const next = !soundOn;
-    setSoundOn(next);
-    setSoundEnabled(next);
-    if (next) playKeyClickSound();
+  const isMasterActive = !soundSettings.masterMuted;
+  const isBgmActive = isMasterActive && !soundSettings.bgmMuted;
+  const isSfxActive = isMasterActive && !soundSettings.sfxMuted;
+
+  const handleQuickToggleBgm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    initAudioContext();
+    const active = toggleBgm();
+    onUpdateSoundSettings({ ...soundSettings, bgmMuted: !active });
+    if (active) playKeyClickSound();
   };
 
   const getDiffBadge = () => {
@@ -149,13 +178,51 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden lg:inline">Ranks</span>
           </button>
 
+          {/* Background Audio Quick Toggle Pill */}
           <button
-            id="toggle_sound_btn"
-            onClick={handleToggleSound}
-            className="p-2 rounded bg-[#1a1c25] border border-[#2d2d3d] text-[#9ca3af] hover:text-white hover:border-amber-500/30 transition"
-            title={soundOn ? "Mute Sound FX" : "Unmute Sound FX"}
+            id="toggle_bgm_quick_btn"
+            onClick={handleQuickToggleBgm}
+            className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-bold uppercase tracking-wider transition border ${
+              isBgmActive
+                ? "bg-cyan-950/40 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 shadow-[0_0_8px_rgba(6,182,212,0.15)]"
+                : "bg-[#1a1c25] border-[#2d2d3d] text-[#6b7280] hover:text-[#9ca3af]"
+            }`}
+            title={isBgmActive ? "Pause Background Atmosphere" : "Resume Background Atmosphere"}
           >
-            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-amber-400" /> : <VolumeX className="w-3.5 h-3.5 text-[#6b7280]" />}
+            <Music className={`w-3.5 h-3.5 ${isBgmActive ? "text-cyan-400 animate-pulse" : "text-[#6b7280]"}`} />
+            <span className="hidden xl:inline">{isBgmActive ? "BGM: On" : "BGM: Off"}</span>
+          </button>
+
+          {/* Comprehensive Sound Settings Controller Button */}
+          <button
+            id="toggle_sound_settings_btn"
+            onClick={() => {
+              initAudioContext();
+              onOpenSoundSettings();
+            }}
+            className={`relative p-2 rounded bg-[#1a1c25] border transition flex items-center justify-center ${
+              isMasterActive
+                ? "border-amber-500/40 text-amber-400 hover:border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.15)]"
+                : "border-rose-900/40 text-rose-400 hover:border-rose-700"
+            }`}
+            title="Open Audio Settings (Master, BGM & SFX)"
+          >
+            {isMasterActive ? (
+              <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+            ) : (
+              <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+            )}
+
+            {/* Status indicator badge */}
+            <span
+              className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-[#11131a] ${
+                isBgmActive && isSfxActive
+                  ? "bg-emerald-400 shadow-[0_0_4px_#34d399]"
+                  : isMasterActive
+                  ? "bg-amber-400"
+                  : "bg-rose-500"
+              }`}
+            />
           </button>
 
           {gameStarted && (

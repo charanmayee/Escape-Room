@@ -5,14 +5,21 @@ import { Sidebar } from "./components/Sidebar";
 import { HomeView } from "./components/HomeView";
 import { LeaderboardView } from "./components/LeaderboardView";
 import { BonusChamberModal } from "./components/BonusChamberModal";
+import { SoundSettingsModal } from "./components/SoundSettingsModal";
 import { VictoryModal } from "./components/VictoryModal";
 import { Room1WordScramble } from "./components/Room1WordScramble";
 import { Room2Decapitated } from "./components/Room2Decapitated";
 import { Room3AIRiddle } from "./components/Room3AIRiddle";
 import { Room4Rebus } from "./components/Room4Rebus";
 import { Room5Matchstick } from "./components/Room5Matchstick";
-import { ClueItem, DifficultyLevel } from "./types";
-import { playErrorBuzzer } from "./utils/audio";
+import { ClueItem, DifficultyLevel, SoundSettings } from "./types";
+import {
+  playErrorBuzzer,
+  getSoundSettings,
+  subscribeSoundSettings,
+  updateSoundSettings,
+  initAudioContext,
+} from "./utils/audio";
 import { AlertTriangle, RotateCcw, Sparkles, HelpCircle, X, Loader2 } from "lucide-react";
 
 export function App() {
@@ -29,11 +36,22 @@ export function App() {
   const [isVictory, setIsVictory] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   const [discoveredClues, setDiscoveredClues] = useState<ClueItem[]>([]);
-  const [soundOn, setSoundOn] = useState(true);
+  
+  // Sound Settings State Manager
+  const [soundSettings, setSoundSettings] = useState<SoundSettings>(getSoundSettings());
+  const [showSoundSettingsModal, setShowSoundSettingsModal] = useState(false);
 
   // Modals
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showBonusModal, setShowBonusModal] = useState(false);
+
+  // Synchronize with external sound settings updates & audio listeners
+  useEffect(() => {
+    const unsubscribe = subscribeSoundSettings((updated) => {
+      setSoundSettings(updated);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Timer countdown loop
   useEffect(() => {
@@ -55,6 +73,7 @@ export function App() {
   }, [gameStarted, isVictory, isGameOver]);
 
   const handleStartGame = (name: string, diff: DifficultyLevel) => {
+    initAudioContext();
     const diffTimer = diff === "Easy" ? 1200 : diff === "Hard" ? 600 : 900;
     const diffHints = diff === "Easy" ? 5 : diff === "Hard" ? 1 : 3;
 
@@ -148,7 +167,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#0a0b10] text-[#e0e0e0] flex flex-col font-sans selection:bg-amber-500 selection:text-[#0a0b10]">
-      {/* Top Navigation */}
+      {/* Top Navigation with Integrated Sound Settings Manager */}
       <Navbar
         playerName={playerName}
         score={score}
@@ -159,8 +178,9 @@ export function App() {
         onOpenLeaderboard={() => setShowLeaderboard(true)}
         onOpenBonusModal={() => setShowBonusModal(true)}
         onResetGame={handleResetGame}
-        soundOn={soundOn}
-        setSoundOn={setSoundOn}
+        soundSettings={soundSettings}
+        onOpenSoundSettings={() => setShowSoundSettingsModal(true)}
+        onUpdateSoundSettings={setSoundSettings}
       />
 
       {/* Main App Layout */}
@@ -277,16 +297,38 @@ export function App() {
           <span className="hidden sm:inline">Connection: <span className="text-green-500 font-bold">Secured</span></span>
           <span className="text-[#2d2d3d] hidden sm:inline">//</span>
           <span className="text-amber-500 font-bold">{difficulty.toUpperCase()} TIER</span>
+          <span className="text-[#2d2d3d] hidden sm:inline">//</span>
+          <button
+            onClick={() => setShowSoundSettingsModal(true)}
+            className="hover:text-amber-400 text-cyan-400/90 flex items-center gap-1 transition"
+          >
+            <span>Audio:</span>
+            <span className="font-bold">
+              {soundSettings.masterMuted
+                ? "Muted"
+                : soundSettings.bgmMuted
+                ? "SFX Only"
+                : "BGM + SFX"}
+            </span>
+          </button>
         </div>
         <div className="hidden md:block">
           Terminal Session: <span className="text-[#9ca3af]">{playerName ? `${playerName.toLowerCase().replace(/\s+/g, '-')}@ai-node` : "guest@ai-node-03"}</span>
         </div>
         <div>
-          Build <span className="text-amber-500/80">v2.4.10-STABLE</span>
+          Build <span className="text-amber-500/80">v2.4.11-AUDIO</span>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Sound Settings Control Node Modal */}
+      <SoundSettingsModal
+        isOpen={showSoundSettingsModal}
+        onClose={() => setShowSoundSettingsModal(false)}
+        soundSettings={soundSettings}
+        onUpdateSettings={setSoundSettings}
+      />
+
+      {/* AI Tactical Hint Modal */}
       {hintModalData && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#11131a] border border-[#2d2d3d] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 font-mono relative">
