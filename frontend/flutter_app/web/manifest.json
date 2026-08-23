@@ -1,0 +1,11 @@
+{
+  "name": "AI Escape Room",
+  "short_name": "EscapeRoom",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0a0b10",
+  "theme_color": "#f59e0b",
+  "description": "Tactical AI Escape Room Experience",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

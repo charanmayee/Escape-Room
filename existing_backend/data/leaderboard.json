@@ -1,0 +1,38 @@
+[
+  {
+    "player": "cherry",
+    "score": 3256,
+    "rooms_completed": 5,
+    "time_remaining": 808,
+    "difficulty": "Easy",
+    "completed_at": "2026-08-23T05:40:36.938Z"
+  },
+  {
+    "player": "CyberSherlock",
+    "score": 1840,
+    "rooms_completed": 5,
+    "time_remaining": 520,
+    "completed_at": "2026-08-22T12:18:45.335Z"
+  },
+  {
+    "player": "AgentCipher",
+    "score": 1680,
+    "rooms_completed": 5,
+    "time_remaining": 410,
+    "completed_at": "2026-08-22T05:18:45.335Z"
+  },
+  {
+    "player": "NeoHacker",
+    "score": 1510,
+    "rooms_completed": 5,
+    "time_remaining": 320,
+    "completed_at": "2026-08-21T17:18:45.335Z"
+  },
+  {
+    "player": "ByteEnigma",
+    "score": 1390,
+    "rooms_completed": 4,
+    "time_remaining": 180,
+    "completed_at": "2026-08-21T05:18:45.336Z"
+  }
+]

@@ -1,0 +1,101 @@
+{
+  "riddles": [
+    {
+      "difficulty": "Easy",
+      "theme": "Technology",
+      "question": "I have keys but no locks. I have a space but no room. You can enter, but you cannot go outside. What am I?",
+      "answer": "keyboard",
+      "hint": "You are probably touching me right now to type your code.",
+      "explanation": "A computer keyboard has letter keys, a space bar, and an Enter key."
+    },
+    {
+      "difficulty": "Easy",
+      "theme": "Student Life",
+      "question": "I have a spine, but no bones. I have leaves, but no branches. I tell stories without speaking. What am I?",
+      "answer": "book",
+      "hint": "You find thousands of me in the college library.",
+      "explanation": "A book has a spine and pages (leaves), holding endless knowledge."
+    },
+    {
+      "difficulty": "Medium",
+      "theme": "Artificial Intelligence",
+      "question": "I learn from everything you show me, but I have no brain of my own. I can write poetry and code, but feel no joy. What am I?",
+      "answer": "ai",
+      "hint": "Two letters that power modern chatbots and neural networks.",
+      "explanation": "Artificial Intelligence (AI) processes training datasets to generate content without sentience."
+    },
+    {
+      "difficulty": "Medium",
+      "theme": "Computer Science",
+      "question": "I speak without a mouth and hear without ears. In programming, I repeat whatever you tell me into the terminal. What am I?",
+      "answer": "echo",
+      "hint": "Think of a shell command that prints strings back to you.",
+      "explanation": "The 'echo' command or acoustic phenomenon repeats received sounds/strings."
+    },
+    {
+      "difficulty": "Hard",
+      "theme": "Cryptography",
+      "question": "I am a secret wrapped in math. Shift me by 3 and Caesar smiles; hash me with SHA and I can never return. What am I?",
+      "answer": "cipher",
+      "hint": "An algorithm used for encryption and decryption.",
+      "explanation": "A cipher encrypts plaintext into ciphertext using shifts or cryptographic functions."
+    }
+  ],
+  "rebus_puzzles": [
+    {
+      "id": 1,
+      "display": "cycle\ncycle\ncycle",
+      "visual_hint": "Three repeating cycles stacked",
+      "answer": "tricycle",
+      "code_digit": "4",
+      "hint": "Count how many cycles there are."
+    },
+    {
+      "id": 2,
+      "display": "MAN\n—————\nBOARD",
+      "visual_hint": "The word MAN positioned above the word BOARD",
+      "answer": "man overboard",
+      "code_digit": "8",
+      "hint": "A distress call shouted on a ship."
+    },
+    {
+      "id": 3,
+      "display": "STAND\n  I  ",
+      "visual_hint": "The letter I placed beneath the word STAND",
+      "answer": "i understand",
+      "code_digit": "2",
+      "hint": "The letter 'I' is UNDER the word STAND."
+    },
+    {
+      "id": 4,
+      "display": "MCE  MCE  MCE",
+      "visual_hint": "The word MICE written three times without the letter I (no 'eyes')",
+      "answer": "three blind mice",
+      "code_digit": "7",
+      "hint": "Look closely at 'MCE' — what letter (or organ for seeing) is missing?"
+    }
+  ],
+  "matchstick_puzzles": [
+    {
+      "id": 1,
+      "equation": "6 + 4 = 4",
+      "task": "Move exactly 1 matchstick to make the equation correct.",
+      "solutions": ["0 + 4 = 4", "5 + 4 = 9", "8 - 4 = 4", "0+4=4", "5+4=9", "8-4=4"],
+      "explanation": "Take the middle horizontal matchstick from 6 to make 0: 0 + 4 = 4, or change + to - by moving stick to 6 making 8 - 4 = 4."
+    },
+    {
+      "id": 2,
+      "equation": "9 - 5 = 6",
+      "task": "Move 1 matchstick to fix the equation.",
+      "solutions": ["3 + 5 = 8", "9 - 3 = 6", "8 - 5 = 3", "9-3=6", "8-5=3"],
+      "explanation": "Move one matchstick from 5 to turn it into 3: 9 - 3 = 6."
+    },
+    {
+      "id": 3,
+      "equation": "5 + 7 = 2",
+      "task": "Move 1 matchstick to balance the sum.",
+      "solutions": ["9 - 7 = 2", "5 + 7 = 12", "9-7=2"],
+      "explanation": "Change the 5 to 9 and the + to -: 9 - 7 = 2."
+    }
+  ]
+}

@@ -1,0 +1,283 @@
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Navbar } from "./components/Navbar";
+import { Sidebar } from "./components/Sidebar";
+import { HomeView } from "./components/HomeView";
+import { LeaderboardView } from "./components/LeaderboardView";
+import { BonusChamberModal } from "./components/BonusChamberModal";
+import { VictoryModal } from "./components/VictoryModal";
+import { Room1WordScramble } from "./components/Room1WordScramble";
+import { Room2Decapitated } from "./components/Room2Decapitated";
+import { Room3AIRiddle } from "./components/Room3AIRiddle";
+import { Room4Rebus } from "./components/Room4Rebus";
+import { Room5Matchstick } from "./components/Room5Matchstick";
+import { ClueItem, DifficultyLevel } from "./types";
+import { playErrorBuzzer } from "./utils/audio";
+import { AlertTriangle, RotateCcw } from "lucide-react";
+
+export function App() {
+  const [playerName, setPlayerName] = useState("");
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>("Medium");
+  const [gameStarted, setGameStarted] = useState(false);
+  const [currentRoom, setCurrentRoom] = useState(1);
+  const [unlockedRooms, setUnlockedRooms] = useState<number[]>([1]);
+  const [score, setScore] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(900); // 15 mins default
+  const [initialTime, setInitialTime] = useState(900);
+  const [maxHints, setMaxHints] = useState(3);
+  const [hintsRemaining, setHintsRemaining] = useState(3);
+  const [isVictory, setIsVictory] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [discoveredClues, setDiscoveredClues] = useState<ClueItem[]>([]);
+  const [soundOn, setSoundOn] = useState(true);
+
+  // Modals
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showBonusModal, setShowBonusModal] = useState(false);
+
+  // Timer countdown loop
+  useEffect(() => {
+    if (!gameStarted || isVictory || isGameOver) return;
+
+    const timer = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setIsGameOver(true);
+          playErrorBuzzer();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [gameStarted, isVictory, isGameOver]);
+
+  const handleStartGame = (name: string, diff: DifficultyLevel) => {
+    const diffTimer = diff === "Easy" ? 1200 : diff === "Hard" ? 600 : 900;
+    const diffHints = diff === "Easy" ? 5 : diff === "Hard" ? 1 : 3;
+
+    setPlayerName(name);
+    setDifficulty(diff);
+    setGameStarted(true);
+    setCurrentRoom(1);
+    setUnlockedRooms([1]);
+    setScore(0);
+    setInitialTime(diffTimer);
+    setRemainingTime(diffTimer);
+    setMaxHints(diffHints);
+    setHintsRemaining(diffHints);
+    setIsVictory(false);
+    setIsGameOver(false);
+    setDiscoveredClues([]);
+    setShowLeaderboard(false);
+  };
+
+  const handleUnlockRoom = (nextRoom: number, earnedPoints: number) => {
+    const multiplier = difficulty === "Hard" ? 2.0 : difficulty === "Medium" ? 1.5 : 1.0;
+    const adjustedPoints = Math.round(earnedPoints * multiplier);
+
+    setScore((prev) => prev + adjustedPoints);
+    if (!unlockedRooms.includes(nextRoom)) {
+      setUnlockedRooms((prev) => [...prev, nextRoom]);
+    }
+    setCurrentRoom(nextRoom);
+  };
+
+  const handleFinalEscape = () => {
+    setIsVictory(true);
+  };
+
+  const handleDiscoverClue = (newClue: ClueItem) => {
+    setDiscoveredClues((prev) => {
+      if (prev.some((c) => c.id === newClue.id)) return prev;
+      return [...prev, newClue];
+    });
+  };
+
+  const handleAwardBonusPoints = (pts: number) => {
+    const multiplier = difficulty === "Hard" ? 2.0 : difficulty === "Medium" ? 1.5 : 1.0;
+    setScore((prev) => prev + Math.round(pts * multiplier));
+  };
+
+  const handleResetGame = () => {
+    setGameStarted(false);
+    setIsVictory(false);
+    setIsGameOver(false);
+    setCurrentRoom(1);
+    setUnlockedRooms([1]);
+    setScore(0);
+    setRemainingTime(initialTime);
+    setDiscoveredClues([]);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0b10] text-[#e0e0e0] flex flex-col font-sans selection:bg-amber-500 selection:text-[#0a0b10]">
+      {/* Top Navigation */}
+      <Navbar
+        playerName={playerName}
+        score={score}
+        remainingTime={remainingTime}
+        currentRoom={currentRoom}
+        difficulty={difficulty}
+        gameStarted={gameStarted && !isVictory && !isGameOver}
+        onOpenLeaderboard={() => setShowLeaderboard(true)}
+        onOpenBonusModal={() => setShowBonusModal(true)}
+        onResetGame={handleResetGame}
+        soundOn={soundOn}
+        setSoundOn={setSoundOn}
+      />
+
+      {/* Main App Layout */}
+      <main className="flex-1 flex flex-col min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)]">
+        {showLeaderboard ? (
+          <LeaderboardView onBack={() => setShowLeaderboard(false)} />
+        ) : !gameStarted ? (
+          <HomeView
+            onStartGame={handleStartGame}
+            onOpenLeaderboard={() => setShowLeaderboard(true)}
+          />
+        ) : isGameOver ? (
+          /* Game Over Screen */
+          <div className="max-w-md mx-auto my-auto p-8 text-center space-y-6 bg-[#11131a] border border-[#2d2d3d] rounded-2xl shadow-2xl relative">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-rose-600 text-white text-[10px] font-bold rounded uppercase tracking-widest">
+              Lockdown Protocol Failure
+            </div>
+            <div className="inline-flex p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              <AlertTriangle className="w-12 h-12 stroke-[2.5]" />
+            </div>
+            <h2 className="text-2xl font-black uppercase tracking-tight text-white">Chamber Sealed</h2>
+            <p className="text-xs text-[#9ca3af] leading-relaxed">
+              The {Math.round(initialTime / 60)}-minute {difficulty.toUpperCase()} countdown expired before security override was authorized.
+            </p>
+            <div className="p-4 rounded-lg bg-[#0a0b10] border border-[#2d2d3d] text-xs">
+              <span className="text-[#6b7280] uppercase tracking-widest text-[10px] block mb-1">Final Mission Score</span>
+              <span className="font-mono text-xl font-bold text-amber-500">{score} PTS</span>
+            </div>
+            <button
+              onClick={handleResetGame}
+              className="w-full px-6 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-[0.2em] transition flex items-center justify-center gap-2 mx-auto shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Retry Escape Mission</span>
+            </button>
+          </div>
+        ) : (
+          /* Active Game View with Chamber Router */
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+            <Sidebar
+              playerName={playerName}
+              score={score}
+              remainingTime={remainingTime}
+              currentRoom={currentRoom}
+              difficulty={difficulty}
+              unlockedRooms={unlockedRooms}
+              discoveredClues={discoveredClues}
+              hintsRemaining={hintsRemaining}
+              maxHints={maxHints}
+              onRequestHint={() => {}}
+              onSelectRoom={(r) => setCurrentRoom(r)}
+              onOpenBonusModal={() => setShowBonusModal(true)}
+            />
+
+            <section className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-0 bg-[radial-gradient(circle_at_center,_#161b22_0%,_#0a0b10_100%)]">
+              <div className="max-w-5xl mx-auto">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentRoom}
+                    initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, y: -14, filter: "blur(4px)" }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                  >
+                    {currentRoom === 1 && (
+                      <Room1WordScramble
+                        onUnlockRoom={handleUnlockRoom}
+                        onDiscoverClue={handleDiscoverClue}
+                        discoveredClues={discoveredClues}
+                      />
+                    )}
+                    {currentRoom === 2 && (
+                      <Room2Decapitated
+                        onUnlockRoom={handleUnlockRoom}
+                        onDiscoverClue={handleDiscoverClue}
+                        discoveredClues={discoveredClues}
+                      />
+                    )}
+                    {currentRoom === 3 && (
+                      <Room3AIRiddle
+                        onUnlockRoom={handleUnlockRoom}
+                        onDiscoverClue={handleDiscoverClue}
+                        discoveredClues={discoveredClues}
+                        difficulty={difficulty}
+                      />
+                    )}
+                    {currentRoom === 4 && (
+                      <Room4Rebus
+                        onUnlockRoom={handleUnlockRoom}
+                        onDiscoverClue={handleDiscoverClue}
+                        discoveredClues={discoveredClues}
+                      />
+                    )}
+                    {currentRoom === 5 && (
+                      <Room5Matchstick
+                        onFinalEscape={handleFinalEscape}
+                        onDiscoverClue={handleDiscoverClue}
+                        discoveredClues={discoveredClues}
+                      />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </section>
+          </div>
+        )}
+      </main>
+
+      {/* High Density Terminal Status Footer */}
+      <footer className="h-11 bg-[#0d0f14] border-t border-[#2d2d3d] px-4 sm:px-6 flex flex-wrap items-center justify-between text-[10px] uppercase tracking-widest text-[#4b5563] font-mono select-none">
+        <div className="flex items-center gap-2">
+          <span>System Status: <span className="text-green-500 font-bold">Active</span></span>
+          <span className="text-[#2d2d3d] hidden sm:inline">//</span>
+          <span className="hidden sm:inline">Connection: <span className="text-green-500 font-bold">Secured</span></span>
+          <span className="text-[#2d2d3d] hidden sm:inline">//</span>
+          <span className="text-amber-500 font-bold">{difficulty.toUpperCase()} TIER</span>
+        </div>
+        <div className="hidden md:block">
+          Terminal Session: <span className="text-[#9ca3af]">{playerName ? `${playerName.toLowerCase().replace(/\s+/g, '-')}@ai-node` : "guest@ai-node-03"}</span>
+        </div>
+        <div>
+          Build <span className="text-amber-500/80">v2.4.10-STABLE</span>
+        </div>
+      </footer>
+
+      {/* Modals */}
+      {showBonusModal && (
+        <BonusChamberModal
+          onClose={() => setShowBonusModal(false)}
+          onAwardBonusPoints={handleAwardBonusPoints}
+        />
+      )}
+
+      {isVictory && (
+        <VictoryModal
+          playerName={playerName}
+          baseScore={score}
+          remainingTime={remainingTime}
+          initialTime={initialTime}
+          difficulty={difficulty}
+          unlockedRoomsCount={unlockedRooms.length}
+          onPlayAgain={handleResetGame}
+          onViewLeaderboard={() => {
+            setIsVictory(false);
+            setGameStarted(false);
+            setShowLeaderboard(true);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export default App;
