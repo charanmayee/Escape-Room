@@ -2,5 +2,7 @@
   "name": "AI Escape Room",
   "description": "A mystery puzzle-solving game where players escape thematic rooms before time runs out using AI riddles, logic challenges, and clues.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

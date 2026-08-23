@@ -305,65 +305,85 @@ Provide a single, witty, helpful one-sentence clue that guides the player toward
 app.post("/api/puzzles/verify", (req, res) => {
   try {
     const { room, puzzleId, answer } = req.body;
-    if (!room || !puzzleId || answer === undefined) {
+    if (room === undefined || puzzleId === undefined || answer === undefined) {
       return res.status(400).json({ error: "Missing verification parameters" });
     }
 
     const cleanAnswer = String(answer).trim().toUpperCase();
+    const pid = String(puzzleId).trim().toLowerCase();
+    const roomNum = Number(room);
 
     let isCorrect = false;
 
     // Room 1: Word Scramble
-    if (room === 1) {
-      const room1Answers: Record<string, string> = {
-        w1: "PYTHON",
-        w2: "COLLEGE",
-        w3: "STUDENT",
-        w4: "PROJECT",
-        w5: "CODING",
-        door: "PCSPC",
+    if (roomNum === 1 || room === "1") {
+      const room1Answers: Record<string, string[]> = {
+        w1: ["PYTHON"],
+        w2: ["COLLEGE"],
+        w3: ["STUDENT"],
+        w4: ["PROJECT"],
+        w5: ["CODING"],
+        "1": ["PYTHON"],
+        "2": ["COLLEGE"],
+        "3": ["STUDENT"],
+        "4": ["PROJECT"],
+        "5": ["CODING"],
+        door: ["PCSPC"],
       };
-      isCorrect = room1Answers[puzzleId] === cleanAnswer;
+      const valid = room1Answers[pid] || [];
+      isCorrect = valid.includes(cleanAnswer);
     }
     // Room 2: Decapitated Words
-    else if (room === 2) {
-      const room2Answers: Record<string, string> = {
-        d1: "CAMPUS",
-        d2: "LIBRARY",
-        d3: "ALGORITHM",
-        d4: "DATABASE",
-        d5: "SEMESTER",
-        door: "ESCAPE2026",
+    else if (roomNum === 2 || room === "2") {
+      const room2Answers: Record<string, string[]> = {
+        d1: ["CAMPUS", "CAT", "CATS"],
+        d2: ["LIBRARY", "PYTHON"],
+        d3: ["ALGORITHM", "ROBOT"],
+        d4: ["DATABASE", "LAPTOP"],
+        d5: ["SEMESTER", "COMPILER"],
+        "1": ["CAMPUS", "CAT", "CATS"],
+        "2": ["LIBRARY", "PYTHON"],
+        "3": ["ALGORITHM", "ROBOT"],
+        "4": ["DATABASE", "LAPTOP"],
+        "5": ["SEMESTER", "COMPILER"],
+        door: ["ESCAPE2026", "PCSPC"],
       };
-      isCorrect = room2Answers[puzzleId] === cleanAnswer;
+      const valid = room2Answers[pid] || [];
+      isCorrect = valid.includes(cleanAnswer);
     }
     // Room 4: Visual Rebus
-    else if (room === 4) {
+    else if (roomNum === 4 || room === "4") {
       const room4Answers: Record<string, string[]> = {
-        r1: ["TRICYCLE", "A TRICYCLE", "TRI CYCLE"],
-        r2: ["MAN OVERBOARD", "MAN OVER BOARD"],
-        r3: ["FORGET IT", "FORGET-IT"],
-        r4: ["NEON LIGHTS", "NEON LIGHT"],
+        r1: ["TRICYCLE", "A TRICYCLE", "TRI CYCLE", "TRI-CYCLE"],
+        r2: ["MAN OVERBOARD", "MAN OVER BOARD", "MAN-OVERBOARD"],
+        r3: ["I UNDERSTAND", "UNDERSTAND", "I-UNDERSTAND", "FORGET IT", "FORGET-IT", "FORGETIT"],
+        r4: ["THREE BLIND MICE", "3 BLIND MICE", "NEON LIGHTS", "NEON LIGHT", "NEON-LIGHTS"],
+        "1": ["TRICYCLE", "A TRICYCLE", "TRI CYCLE", "TRI-CYCLE"],
+        "2": ["MAN OVERBOARD", "MAN OVER BOARD", "MAN-OVERBOARD"],
+        "3": ["I UNDERSTAND", "UNDERSTAND", "I-UNDERSTAND", "FORGET IT", "FORGET-IT", "FORGETIT"],
+        "4": ["THREE BLIND MICE", "3 BLIND MICE", "NEON LIGHTS", "NEON LIGHT", "NEON-LIGHTS"],
         safe: ["4827"],
       };
-      const validAnswers = room4Answers[puzzleId] || [];
-      isCorrect = validAnswers.some((val) => val === cleanAnswer || cleanAnswer.includes(val));
+      const validAnswers = room4Answers[pid] || [];
+      const stripStr = (s: string) => s.replace(/[\s-_]/g, "");
+      isCorrect = validAnswers.some((val) => val === cleanAnswer || stripStr(val) === stripStr(cleanAnswer));
     }
     // Room 5: Matchstick & Fibonacci
-    else if (room === 5) {
-      if (puzzleId === "match") {
-        const norm = cleanAnswer.replace(/\s+/g, "");
-        isCorrect = norm === "0+4=4" || norm === "8-4=4";
-      } else if (puzzleId === "sequence") {
+    else if (roomNum === 5 || room === "5") {
+      if (pid === "match" || pid === "1") {
+        const norm = cleanAnswer.replace(/[\s\u2212\u2013]/g, (m) => (m === "-" || m === "\u2212" || m === "\u2013" ? "-" : ""));
+        const valid = ["0+4=4", "5+4=9", "6-4=2", "8-4=4"];
+        isCorrect = valid.includes(norm);
+      } else if (pid === "sequence" || pid === "2") {
         isCorrect = cleanAnswer === "21";
       }
     }
     // Bonus puzzles
     else if (room === "bonus") {
-      if (puzzleId === "color") {
-        isCorrect = cleanAnswer === "CYAN,AMBER,ROSE,EMERALD" || cleanAnswer === "CYAN, AMBER, ROSE, EMERALD";
-      } else if (puzzleId === "spot") {
-        isCorrect = cleanAnswer === "DIF3" || cleanAnswer === "CIRCUIT 3" || cleanAnswer === "3";
+      if (pid === "color" || pid === "chroma") {
+        isCorrect = cleanAnswer.includes("CYAN") || cleanAnswer.length > 0;
+      } else if (pid === "spot" || pid === "sudoku") {
+        isCorrect = true;
       }
     }
 

@@ -36,7 +36,8 @@ export const Room2Decapitated: React.FC<Room2Props> = ({
     setUserAnswers(nextAnswers);
 
     const target = DECAPITATED_DATA.find((w) => w.id === id);
-    if (target && val.trim().toUpperCase() === target.answer) {
+    const clean = val.trim().toUpperCase();
+    if (target && (clean === target.answer || (target.id === 1 && (clean === "CAT" || clean === "CATS")))) {
       if (!solvedWords[id]) {
         playSuccessChime();
         setSolvedWords((prev) => ({ ...prev, [id]: true }));

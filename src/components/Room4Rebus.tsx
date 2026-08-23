@@ -58,24 +58,58 @@ export const Room4Rebus: React.FC<Room4Props> = ({
   const [userAnswers, setUserAnswers] = useState<{ [key: number]: string }>({});
   const [solvedCards, setSolvedCards] = useState<{ [key: number]: boolean }>({});
   const [activeHints, setActiveHints] = useState<{ [key: number]: boolean }>({});
+  const [cardErrors, setCardErrors] = useState<{ [key: number]: boolean }>({});
   const [safeCodeInput, setSafeCodeInput] = useState("");
   const [doorError, setDoorError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
-  const handleCardInput = (id: number, val: string) => {
-    const nextAnswers = { ...userAnswers, [id]: val.toUpperCase() };
-    setUserAnswers(nextAnswers);
+  const normalizeAnswer = (str: string): string => {
+    return str
+      .trim()
+      .toUpperCase()
+      .replace(/[-_]/g, " ")
+      .replace(/\s+/g, " ");
+  };
 
+  const verifyCardAnswer = (id: number, val: string) => {
     const target = REBUS_DATA.find((r) => r.id === id);
-    if (target) {
-      const cleanVal = val.trim().toUpperCase().replace(/-/g, " ");
-      const cleanAns = target.answer.toUpperCase();
-      if (cleanVal === cleanAns || cleanVal.includes(cleanAns) || cleanAns.includes(cleanVal) && cleanVal.length >= 7) {
-        if (!solvedCards[id]) {
-          playSuccessChime();
-          setSolvedCards((prev) => ({ ...prev, [id]: true }));
-        }
+    if (!target) return false;
+
+    const normalizedInput = normalizeAnswer(val);
+    const normalizedExpected = normalizeAnswer(target.answer);
+
+    // Strictly require complete, full case-insensitive string match
+    return normalizedInput.length > 0 && normalizedInput === normalizedExpected;
+  };
+
+  const handleCardInput = (id: number, val: string) => {
+    setUserAnswers((prev) => ({ ...prev, [id]: val.toUpperCase() }));
+
+    // Auto-confirm if user has typed the full, exact case-insensitive answer
+    if (verifyCardAnswer(id, val)) {
+      if (!solvedCards[id]) {
+        playSuccessChime();
+        setSolvedCards((prev) => ({ ...prev, [id]: true }));
+        setCardErrors((prev) => ({ ...prev, [id]: false }));
       }
+    }
+  };
+
+  const handleCardSubmit = (id: number, e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (solvedCards[id]) return;
+
+    const currentVal = userAnswers[id] || "";
+    if (verifyCardAnswer(id, currentVal)) {
+      playSuccessChime();
+      setSolvedCards((prev) => ({ ...prev, [id]: true }));
+      setCardErrors((prev) => ({ ...prev, [id]: false }));
+    } else {
+      playErrorBuzzer();
+      setCardErrors((prev) => ({ ...prev, [id]: true }));
+      setTimeout(() => {
+        setCardErrors((prev) => ({ ...prev, [id]: false }));
+      }, 1500);
     }
   };
 
@@ -243,18 +277,40 @@ export const Room4Rebus: React.FC<Room4Props> = ({
                 </div>
 
                 <div>
-                  <input
-                    type="text"
-                    value={userAnswers[r.id] || ""}
-                    onChange={(e) => handleCardInput(r.id, e.target.value)}
-                    disabled={isSolved}
-                    placeholder="Enter decoded phrase..."
-                    className={`w-full px-3.5 py-2.5 rounded text-xs font-mono font-bold tracking-[0.15em] uppercase focus:outline-none border ${
-                      isSolved
-                        ? "bg-[#11131a] border-green-500/50 text-green-400 cursor-not-allowed"
-                        : "bg-[#11131a] border-[#2d2d3d] text-white focus:border-amber-500/50"
-                    }`}
-                  />
+                  <form onSubmit={(e) => handleCardSubmit(r.id, e)} className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        id={`rebus_input_${r.id}`}
+                        type="text"
+                        value={userAnswers[r.id] || ""}
+                        onChange={(e) => handleCardInput(r.id, e.target.value)}
+                        disabled={isSolved}
+                        placeholder="Enter decoded phrase..."
+                        className={`flex-1 px-3.5 py-2.5 rounded text-xs font-mono font-bold tracking-[0.15em] uppercase focus:outline-none border ${
+                          isSolved
+                            ? "bg-[#11131a] border-green-500/50 text-green-400 cursor-not-allowed"
+                            : cardErrors[r.id]
+                            ? "bg-[#1f1215] border-rose-500 text-rose-300 focus:border-rose-500"
+                            : "bg-[#11131a] border-[#2d2d3d] text-white focus:border-amber-500/50"
+                        }`}
+                      />
+                      {!isSolved && (
+                        <button
+                          id={`rebus_submit_btn_${r.id}`}
+                          type="submit"
+                          className="px-3.5 py-2.5 rounded bg-amber-500 hover:bg-amber-400 text-[#0a0b10] text-xs font-mono font-black uppercase tracking-wider transition"
+                        >
+                          Check
+                        </button>
+                      )}
+                    </div>
+                  </form>
+
+                  {cardErrors[r.id] && !isSolved && (
+                    <p className="text-[10px] text-rose-400 font-mono font-bold mt-1.5 animate-in fade-in">
+                      ❌ Incorrect decoded phrase. Re-examine visual wordplay.
+                    </p>
+                  )}
 
                   {isSolved && (
                     <div className="text-[10px] text-green-400 font-bold mt-2 flex items-center justify-between bg-[#11131a] p-2 rounded border border-[#2d2d3d] font-mono">
@@ -304,7 +360,13 @@ export const Room4Rebus: React.FC<Room4Props> = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleUnlockSafe();
+          }}
+          className="flex flex-col sm:flex-row gap-3 pt-2"
+        >
           <input
             id="room4_safe_code_input"
             type="text"
@@ -317,13 +379,13 @@ export const Room4Rebus: React.FC<Room4Props> = ({
 
           <button
             id="room4_safe_unlock_btn"
-            onClick={handleUnlockSafe}
+            type="submit"
             className="px-8 py-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-[#0a0b10] font-black text-xs uppercase tracking-[0.2em] transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] flex items-center justify-center gap-2"
           >
             <span>Crack Safe & Unlock Room 5</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-        </div>
+        </form>
 
         {doorError && (
           <p className="text-xs text-rose-400 font-bold font-mono animate-shake text-center">

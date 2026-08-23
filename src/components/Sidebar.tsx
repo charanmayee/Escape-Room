@@ -1,5 +1,5 @@
 import React from "react";
-import { Lock, Unlock, Clock, Award, Compass, Search, Lightbulb, ShieldAlert, Sparkles, ShieldCheck, Flame, AlertTriangle, Map } from "lucide-react";
+import { Lock, Unlock, Clock, Award, Compass, Search, Lightbulb, ShieldAlert, Sparkles, ShieldCheck, Flame, AlertTriangle, Map, HelpCircle } from "lucide-react";
 import { ClueItem, DifficultyLevel } from "../types";
 import { FacilityFloorPlan } from "./FacilityFloorPlan";
 
@@ -132,8 +132,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Available Hints Bar & Request AI Hint / Bonus */}
       <div className="mt-auto pt-4 border-t border-[#2d2d3d] space-y-3">
-        <div className="bg-[#1a1c25] rounded p-3">
-          <div className="flex justify-between items-center mb-2">
+        <div className="bg-[#1a1c25] rounded p-3 space-y-2">
+          <div className="flex justify-between items-center">
             <span className="text-[10px] uppercase tracking-widest text-amber-500 font-bold">
               Available Hints
             </span>
@@ -153,6 +153,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
             ))}
           </div>
+
+          <button
+            id="sidebar_request_hint_btn"
+            onClick={onRequestHint}
+            disabled={hintsRemaining <= 0}
+            className={`w-full mt-2 py-1.5 px-2 rounded text-[10px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition border ${
+              hintsRemaining > 0
+                ? "bg-[#11131a] border-amber-500/40 hover:border-amber-500 text-amber-400 hover:bg-[#1f2230]"
+                : "bg-[#0d0f14] border-[#2d2d3d] text-[#6b7280] cursor-not-allowed"
+            }`}
+          >
+            <HelpCircle className="w-3 h-3 text-amber-500" />
+            <span>{hintsRemaining > 0 ? "Request AI Tactical Clue" : "Hints Depleted"}</span>
+          </button>
         </div>
 
         <button

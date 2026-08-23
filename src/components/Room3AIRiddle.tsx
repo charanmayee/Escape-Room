@@ -76,11 +76,14 @@ export const Room3AIRiddle: React.FC<Room3Props> = (props: Room3Props) => {
 
     setAttempts((prev) => prev + 1);
 
-    // Matching logic (exact or strong substring match)
+    // Matching logic (exact match with tolerance for articles like 'a', 'an', 'the')
+    const stripArticles = (s: string) => s.replace(/^(a|an|the)\s+/i, "").replace(/[^a-z0-9]/g, "");
+    const inNorm = stripArticles(cleanInput);
+    const ansNorm = stripArticles(cleanAnswer);
+
     if (
       cleanInput === cleanAnswer ||
-      (cleanInput.length >= 3 && cleanAnswer.includes(cleanInput)) ||
-      (cleanAnswer.length >= 3 && cleanInput.includes(cleanAnswer))
+      (inNorm.length > 0 && inNorm === ansNorm)
     ) {
       playSuccessChime();
       setSolved(true);
